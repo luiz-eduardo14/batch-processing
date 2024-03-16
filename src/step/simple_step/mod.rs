@@ -2,15 +2,20 @@ use std::rc::Rc;
 use crate::step::{Step, StepCallback};
 use crate::step::step_builder::StepBuilderTrait;
 
-pub trait SimpleStepBuilderTrait<I, O> {
-    fn tasklet(self, step_callback: StepCallback) -> Self;
+enum StepContext<C> {
+    Context(Rc<C>),
+    NoContext
 }
 
-pub struct SimpleStepBuilder {
-    step: Step,
+pub trait SimpleStepBuilderTrait<I, O, C> {
+    fn tasklet(self, step_callback: StepCallback<C>) -> Self;
 }
 
-impl StepBuilderTrait<fn(), fn()> for SimpleStepBuilder {
+pub struct SimpleStepBuilder<C: Sized> {
+    step: Step<StepContext<C>>,
+}
+
+impl <C> StepBuilderTrait<fn(), fn(), C> for SimpleStepBuilder<C> {
     // fn chunk(self, chunk_size: u32) -> Self {
     //     SimpleStepBuilder {
     //         step: Step {
@@ -49,6 +54,7 @@ impl StepBuilderTrait<fn(), fn()> for SimpleStepBuilder {
                 end_time: None,
                 start_time: None,
                 throw_tolerant: None,
+                context: None
             }
         }
     }
@@ -73,14 +79,14 @@ impl StepBuilderTrait<fn(), fn()> for SimpleStepBuilder {
         return self;
     }
 
-    fn build(self) -> Step {
+    fn build(self) -> Step<C> {
         let current_self = self.validate();
         return current_self.step;
     }
 }
 
-impl SimpleStepBuilderTrait<fn(), fn()> for SimpleStepBuilder {
-    fn tasklet(self, step_callback: StepCallback) -> Self {
+impl <C> SimpleStepBuilderTrait<fn(), fn(), C> for SimpleStepBuilder<C> where C: Sized {
+    fn tasklet(self, step_callback: StepCallback<C>) -> Self {
         return SimpleStepBuilder {
             step: Step {
                 callback: Some(step_callback),
@@ -90,6 +96,10 @@ impl SimpleStepBuilderTrait<fn(), fn()> for SimpleStepBuilder {
     }
 }
 
-pub fn get(name: String) -> SimpleStepBuilder {
+pub fn get(name: String) -> SimpleStepBuilder<dyn Default> {
+    SimpleStepBuilder::get(name)
+}
+
+pub fn get_with_context<C>(name: String,) -> SimpleStepBuilder<C> {
     SimpleStepBuilder::get(name)
 }

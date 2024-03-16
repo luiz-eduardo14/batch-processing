@@ -1,9 +1,9 @@
 use crate::step::Step;
 
-pub trait StepBuilderTrait<I, O> {
+pub trait StepBuilderTrait<I, O, C> {
     fn decider(self, decider: fn() -> bool) -> Self;
     fn throw_tolerant(self, throw_tolerant: bool) -> Self;
     fn get(name: String) -> Self;
     fn validate(self) -> Self;
-    fn build(self) -> Step;
+    fn build(self) -> Step<C>;
 }
