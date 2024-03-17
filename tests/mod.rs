@@ -2,7 +2,6 @@
 mod simple_step_test {
     use std::sync::{Arc, Mutex};
     use std::thread;
-    use std::thread::Thread;
 
     use batch::step::{Runner, simple_step};
     use batch::step::simple_step::SimpleStepBuilderTrait;
@@ -47,13 +46,21 @@ mod simple_step_test {
         // teread1.join().expect("TODO: panic message");
 
         // let thread = thread::spawn(move || {
-        let step1 = simple_step::get("simple_step".to_string()).throw_tolerant(true).tasklet(Box::new(move || {
-            let mut test = test_clone.lock().unwrap();
-            println!("Step 2: {:?}", test);
-            test.push(1);
-        })).build();
+
+        let test_clone = test.clone();
+
+        let step1 = simple_step::get("simple_step".to_string())
+            .throw_tolerant(true)
+            .tasklet(Box::new(move || {
+                let mut test = test_clone.lock().unwrap();
+                println!("Step 2: {:?}", test);
+                test.push(1);
+            })).build();
 
 
+        step1.run().expect("TODO: panic message");
+
+        println!("Test: {:?}", test.lock().unwrap());
 
         // });
         //

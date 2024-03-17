@@ -2,20 +2,15 @@ use std::rc::Rc;
 use crate::step::{Step, StepCallback};
 use crate::step::step_builder::StepBuilderTrait;
 
-enum StepContext<C> {
-    Context(Rc<C>),
-    NoContext
+pub trait SimpleStepBuilderTrait<I, O> {
+    fn tasklet(self, step_callback: StepCallback) -> Self;
 }
 
-pub trait SimpleStepBuilderTrait<I, O, C> {
-    fn tasklet(self, step_callback: StepCallback<C>) -> Self;
+pub struct SimpleStepBuilder {
+    step: Step,
 }
 
-pub struct SimpleStepBuilder<C: Sized> {
-    step: Step<StepContext<C>>,
-}
-
-impl <C> StepBuilderTrait<fn(), fn(), C> for SimpleStepBuilder<C> {
+impl StepBuilderTrait<fn(), fn()> for SimpleStepBuilder {
     // fn chunk(self, chunk_size: u32) -> Self {
     //     SimpleStepBuilder {
     //         step: Step {
@@ -54,7 +49,6 @@ impl <C> StepBuilderTrait<fn(), fn(), C> for SimpleStepBuilder<C> {
                 end_time: None,
                 start_time: None,
                 throw_tolerant: None,
-                context: None
             }
         }
     }
@@ -79,14 +73,14 @@ impl <C> StepBuilderTrait<fn(), fn(), C> for SimpleStepBuilder<C> {
         return self;
     }
 
-    fn build(self) -> Step<C> {
+    fn build(self) -> Step {
         let current_self = self.validate();
         return current_self.step;
     }
 }
 
-impl <C> SimpleStepBuilderTrait<fn(), fn(), C> for SimpleStepBuilder<C> where C: Sized {
-    fn tasklet(self, step_callback: StepCallback<C>) -> Self {
+impl SimpleStepBuilderTrait<fn(), fn()> for SimpleStepBuilder {
+    fn tasklet(self, step_callback: StepCallback) -> Self {
         return SimpleStepBuilder {
             step: Step {
                 callback: Some(step_callback),
@@ -96,10 +90,6 @@ impl <C> SimpleStepBuilderTrait<fn(), fn(), C> for SimpleStepBuilder<C> where C:
     }
 }
 
-pub fn get(name: String) -> SimpleStepBuilder<dyn Default> {
-    SimpleStepBuilder::get(name)
-}
-
-pub fn get_with_context<C>(name: String,) -> SimpleStepBuilder<C> {
+pub fn get(name: String) -> SimpleStepBuilder {
     SimpleStepBuilder::get(name)
 }
