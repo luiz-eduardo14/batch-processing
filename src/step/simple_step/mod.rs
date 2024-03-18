@@ -1,4 +1,3 @@
-use std::rc::Rc;
 use crate::step::{Step, StepCallback};
 use crate::step::step_builder::StepBuilderTrait;
 
@@ -29,10 +28,10 @@ impl StepBuilderTrait<fn(), fn()> for SimpleStepBuilder {
         }
     }
 
-    fn throw_tolerant(self, throw_tolerant: bool) -> Self {
+    fn throw_tolerant(self) -> Self {
         SimpleStepBuilder {
             step: Step {
-                throw_tolerant: Some(throw_tolerant),
+                throw_tolerant: Some(true),
                 ..self.step
             }
         }
