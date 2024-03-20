@@ -10,7 +10,7 @@ pub mod reader;
 pub mod processor;
 pub mod writable;
 
-pub trait ComplexStepBuilderTrait<I: Sized + Clone, O: Sized + Clone> {
+pub trait ComplexStepBuilderTrait<I: Sized, O: Sized> {
     fn reader(self, reader: Box<dyn Fn() -> Box<dyn Iterator<Item=I>>>) -> Self;
     fn processor(self, processor: Box<dyn Fn() -> Box<dyn Fn(I) -> O>>) -> Self;
     fn writer(self, writer: Box<dyn Fn() -> Box<dyn Fn(&Vec<O>) -> ()>>) -> Self;
@@ -19,7 +19,7 @@ pub trait ComplexStepBuilderTrait<I: Sized + Clone, O: Sized + Clone> {
 
 const DEFAULT_CHUNK_SIZE: usize = 1000;
 
-impl <I: Sized + Clone + 'static, O: Sized + Clone + 'static> ComplexStepBuilderTrait<I, O> for ComplexStepBuilder<I, O> {
+impl <I: Sized + 'static, O: Sized + 'static> ComplexStepBuilderTrait<I, O> for ComplexStepBuilder<I, O> {
     fn reader(self, reader: Box<dyn Fn() -> Box<dyn Iterator<Item=I>>>) -> Self {
         ComplexStepBuilder {
             reader: Some(reader),
@@ -49,7 +49,7 @@ impl <I: Sized + Clone + 'static, O: Sized + Clone + 'static> ComplexStepBuilder
     }
 }
 
-pub struct ComplexStepBuilder<I: Sized + Clone, O: Sized + Clone> {
+pub struct ComplexStepBuilder<I: Sized, O: Sized> {
     reader: Option<Box<dyn Fn() -> Box<dyn Iterator<Item=I>>>>,
     processor: Option<Box<dyn Fn() -> Box<dyn Fn(I) -> O>>>,
     writer: Option<Box<dyn Fn() -> Box<dyn Fn(&Vec<O>) -> ()>>>,
@@ -57,7 +57,7 @@ pub struct ComplexStepBuilder<I: Sized + Clone, O: Sized + Clone> {
     step: Step,
 }
 
-impl<I: Sized + Clone + 'static, O: Sized + Clone + 'static> StepBuilderTrait for ComplexStepBuilder<I, O> where Self: Sized {
+impl<I: Sized + 'static, O: Sized + 'static> StepBuilderTrait for ComplexStepBuilder<I, O> where Self: Sized {
     fn decider(self, decider: fn() -> bool) -> Self {
         ComplexStepBuilder {
             step: Step {
@@ -144,13 +144,13 @@ impl<I: Sized + Clone + 'static, O: Sized + Clone + 'static> StepBuilderTrait fo
     }
 }
 
-// impl <I: Sized + Clone + 'static, O: Sized + Clone + 'static> Runner for ComplexStepBuilder<I, O> {
+// impl <I: Sized + 'static, O: Sized + 'static> Runner for ComplexStepBuilder<I, O> {
 //     fn run(self) {
 //         let step = self.build();
 //         step.run()
 //     }
 // }
 
-pub fn get<I: Sized + Clone + 'static, O: Sized + Clone + 'static>(name: String) -> ComplexStepBuilder<I, O> {
+pub fn get<I: Sized + 'static, O: Sized + 'static>(name: String) -> ComplexStepBuilder<I, O> {
     ComplexStepBuilder::get(name)
 }
