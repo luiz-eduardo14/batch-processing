@@ -3,7 +3,7 @@ use std::thread::{JoinHandle, spawn};
 
 use log::{error, info};
 
-use crate::step::{Runner, Step};
+use crate::sync::step::{Runner, Step};
 
 pub mod job_builder;
 

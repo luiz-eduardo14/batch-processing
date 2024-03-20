@@ -1,0 +1,156 @@
+use std::io::Read;
+use futures::StreamExt;
+use crate::sync::step::complex_step::processor::Processor;
+use crate::sync::step::complex_step::reader::Readable;
+use crate::sync::step::complex_step::writable::Writable;
+use crate::sync::step::{Runner, Step};
+use crate::sync::step::step_builder::StepBuilderTrait;
+
+pub mod reader;
+pub mod processor;
+pub mod writable;
+
+pub trait ComplexStepBuilderTrait<I: Sized + Clone, O: Sized + Clone> {
+    fn reader(self, reader: Box<dyn Fn() -> Box<dyn Iterator<Item=I>>>) -> Self;
+    fn processor(self, processor: Box<dyn Fn() -> Box<dyn Fn(I) -> O>>) -> Self;
+    fn writer(self, writer: Box<dyn Fn() -> Box<dyn Fn(&Vec<O>) -> ()>>) -> Self;
+    fn chunk_size(self, chunk_size: usize) -> Self;
+}
+
+const DEFAULT_CHUNK_SIZE: usize = 1000;
+
+impl <I: Sized + Clone + 'static, O: Sized + Clone + 'static> ComplexStepBuilderTrait<I, O> for ComplexStepBuilder<I, O> {
+    fn reader(self, reader: Box<dyn Fn() -> Box<dyn Iterator<Item=I>>>) -> Self {
+        ComplexStepBuilder {
+            reader: Some(reader),
+            ..self
+        }
+    }
+
+    fn processor(self, processor: Box<dyn Fn() -> Box<dyn Fn(I) -> O>>) -> Self {
+        ComplexStepBuilder {
+            processor: Some(processor),
+            ..self
+        }
+    }
+
+    fn writer(self, writer: Box<dyn Fn() -> Box<dyn Fn(&Vec<O>) -> ()>>) -> Self {
+        ComplexStepBuilder {
+            writer: Some(writer),
+            ..self
+        }
+    }
+
+    fn chunk_size(self, chunk_size: usize) -> Self {
+        ComplexStepBuilder {
+            chunk_size: Some(chunk_size),
+            ..self
+        }
+    }
+}
+
+pub struct ComplexStepBuilder<I: Sized + Clone, O: Sized + Clone> {
+    reader: Option<Box<dyn Fn() -> Box<dyn Iterator<Item=I>>>>,
+    processor: Option<Box<dyn Fn() -> Box<dyn Fn(I) -> O>>>,
+    writer: Option<Box<dyn Fn() -> Box<dyn Fn(&Vec<O>) -> ()>>>,
+    chunk_size: Option<usize>,
+    step: Step,
+}
+
+impl<I: Sized + Clone + 'static, O: Sized + Clone + 'static> StepBuilderTrait for ComplexStepBuilder<I, O> where Self: Sized {
+    fn decider(self, decider: fn() -> bool) -> Self {
+        ComplexStepBuilder {
+            step: Step {
+                decider: Some(decider),
+                ..self.step
+            },
+            ..self
+        }
+    }
+
+    fn throw_tolerant(self) -> Self {
+        ComplexStepBuilder {
+            step: Step {
+                throw_tolerant: Some(true),
+                ..self.step
+            },
+            ..self
+        }
+    }
+
+    #[inline]
+    fn get(name: String) -> Self {
+        ComplexStepBuilder {
+            reader: None,
+            processor: None,
+            writer: None,
+            chunk_size: None,
+            step: Step {
+                name,
+                callback: None,
+                decider: None,
+                end_time: None,
+                start_time: None,
+                throw_tolerant: None,
+            },
+        }
+    }
+
+    fn validate(self) -> Self {
+        if self.step.name.is_empty() {
+            panic!("Name is required");
+        }
+
+        if self.reader.is_none() {
+            panic!("Reader is required");
+        }
+
+        if self.processor.is_none() {
+            panic!("Processor is required");
+        }
+
+        if self.writer.is_none() {
+            panic!("Writer is required");
+        }
+
+        return self;
+    }
+
+    fn build(self) -> Step {
+        let mut current_self = self.validate();
+
+        current_self.step.callback = Some(Box::new(move || {
+            let reader = current_self.reader.unwrap();
+            let processor = current_self.processor.unwrap().as_mut()();
+            let writer = current_self.writer.unwrap().as_mut()();
+            let chunk_size = current_self.chunk_size.unwrap_or(DEFAULT_CHUNK_SIZE);
+            let mut vec = Vec::with_capacity(chunk_size);
+
+            for chunk in &mut reader() {
+                vec.push(processor(chunk));
+
+                if vec.len() == chunk_size {
+                    writer(&vec);
+                    vec.clear();
+                }
+            }
+
+            if !vec.is_empty() {
+                writer(&vec);
+            }
+        }));
+
+        return current_self.step;
+    }
+}
+
+// impl <I: Sized + Clone + 'static, O: Sized + Clone + 'static> Runner for ComplexStepBuilder<I, O> {
+//     fn run(self) {
+//         let step = self.build();
+//         step.run()
+//     }
+// }
+
+pub fn get<I: Sized + Clone + 'static, O: Sized + Clone + 'static>(name: String) -> ComplexStepBuilder<I, O> {
+    ComplexStepBuilder::get(name)
+}

@@ -1,5 +1,5 @@
-use crate::job::Job;
-use crate::step::Step;
+use crate::sync::job::Job;
+use crate::sync::step::Step;
 
 pub trait JobBuilderTrait {
     fn validate(self) -> Self;
