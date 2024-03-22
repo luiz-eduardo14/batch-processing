@@ -15,7 +15,7 @@ mod simple_step_test {
             test.push(1);
         };
 
-        let step1 = simple_step::get("simple_step".to_string())
+        let step1 = simple_step::get("step".to_string())
             .throw_tolerant()
             .tasklet(Box::new(tasklet1)).build();
 
@@ -27,7 +27,7 @@ mod simple_step_test {
             test.push(2);
         };
 
-        let step2 = simple_step::get("simple_step".to_string())
+        let step2 = simple_step::get("step".to_string())
             .throw_tolerant()
             .tasklet(Box::new(tasklet2))
             .build();
