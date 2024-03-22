@@ -18,30 +18,26 @@ mod job_test {
             println!("Step 1");
         };
 
-        let step1: AsyncStep<String> = AsyncSimpleStepBuilder::get(String::from("step1"))
-            .tasklet(Box::new(move |context| {
-                return Box::pin(async move {
-                    println!("Step 1");
-                    return Ok(format!("Hello, {}", context));
-                });
-            }))
-            .build();
+        fn generate_step(step_count: i8) -> AsyncStep<String> {
+            return AsyncSimpleStepBuilder::get(String::from(format!("step{}", step_count)))
+                .tasklet(Box::new(move |context| {
+                    return Box::pin(async move {
+                        println!("{}", format!("Step {}", step_count));
+                        return Ok(format!("Hello, {}", context));
+                    });
+                }))
+                .build();
+        }
 
-        let step2: AsyncStep<String> = AsyncSimpleStepBuilder::get(String::from("step2"))
-            .throw_tolerant()
-            .tasklet(Box::new(move |context| {
-                return Box::pin(async move {
-                    println!("Step 2");
-                    return Ok(format!("Hello, {}", context));
-                });
-            }))
-            .build();
+        let mut job_builder = AsyncJobBuilder::get(String::from("sync-data"))
+            .step(generate_step(1))
+            .step(generate_step(2));
 
-        let job = AsyncJobBuilder::get(String::from("sync-data"))
-            .step(step2)
-            .step(step1)
-            .multi_tasks(4)
-            .build();
+        for i in 3..=10 {
+            job_builder = job_builder.step(generate_step(i));
+        }
+
+        let job = job_builder.build();
 
         let shared_context = Arc::new(String::from("test"));
 
