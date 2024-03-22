@@ -36,8 +36,6 @@ impl <C> AsyncStepBuilderTrait<C> for AsyncSimpleStepBuilder<C> {
                 name,
                 callback: None,
                 decider: None,
-                end_time: None,
-                start_time: None,
                 throw_tolerant: None,
             }
         }
