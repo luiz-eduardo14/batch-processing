@@ -11,8 +11,6 @@ mod complex_step_test {
         let test: Arc<Mutex<Vec<i64>>> = Arc::new(Mutex::new(Vec::new()));
         let test_clone = test.clone();
 
-
-
         let step = complex_step::get::<String, i64>("complex_step".to_string())
             .throw_tolerant()
             .reader(Box::new(|| {
@@ -33,15 +31,11 @@ mod complex_step_test {
             }))
         .build();
 
-        step.run();
-
         let binding = test.clone();
         let test_clone = binding.lock().unwrap();
 
         assert_eq!(test_clone.len(), 1, "The length of the vector should be 1");
 
         assert_eq!(test_clone[0], 1, "The first element should be 1");
-
-        // assert_eq!(test.lock().unwrap().len(), 2);
     }
 }

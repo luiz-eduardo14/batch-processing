@@ -10,8 +10,8 @@ use async_trait::async_trait;
 use futures::future::BoxFuture;
 
 #[async_trait]
-pub trait AsyncRunner where Self: Sized + Send {
-    async fn run(self) -> Result<String, String>;
+pub trait AsyncRunner<C: 'static> where Self: Sized + Send {
+    async fn run(self, context: Arc<C>) -> Result<String, String>;
 }
 
 type DynAsyncCallback<I, O> = dyn 'static + Send + Sync + Fn(I) -> BoxFuture<'static, O>;
@@ -19,7 +19,6 @@ type DynAsyncCallback<I, O> = dyn 'static + Send + Sync + Fn(I) -> BoxFuture<'st
 type DeciderCallback = fn() -> bool;
 
 pub struct AsyncStep<C: 'static> {
-    context: Arc<C>,
     start_time: Option<u64>,
     end_time: Option<u64>,
     pub name: String,
@@ -29,8 +28,8 @@ pub struct AsyncStep<C: 'static> {
 }
 
 #[async_trait]
-impl <C: Send + Sync> AsyncRunner for AsyncStep<C> {
-    async fn run(self) -> Result<String, String> {
+impl <C: Send + Sync> AsyncRunner<C> for AsyncStep<C> {
+    async fn run(self, context: Arc<C>) -> Result<String, String> {
         return match self.callback {
             None => {
                 if self.throw_tolerant.unwrap_or(false) {
@@ -39,7 +38,7 @@ impl <C: Send + Sync> AsyncRunner for AsyncStep<C> {
                 panic!("callback is required, please provide a callback to the step with name: {}", self.name)
             }
             Some(callback) => {
-                return callback(self.context).await
+                return callback(context).await
             }
         };
     }

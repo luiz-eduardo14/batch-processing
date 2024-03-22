@@ -20,25 +20,21 @@ mod async_simple_step_test {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_simple_step() {
-
-        let context = ContextTest {
-            name: "test".to_string()
-        };
-
-        let string = String::from("test");
-
-        let shared_context = Arc::new(context);
-
-        let context = Arc::clone(&shared_context);
-
-        let step = simple_step::get("test".to_string(), context).tasklet(Box::new(move |context| {
+        let step = simple_step::get("test".to_string())
+            .tasklet(Box::new(move |context: Arc<ContextTest>| {
             return Box::pin(async move {
                 return Ok(format!("Hello, {}", context.name));
             })
         })).build();
 
+        let context_struct = ContextTest {
+            name: "test".to_string()
+        };
+        let shared_context = Arc::new(context_struct);
+        let context = Arc::clone(&shared_context);
+
         let thread = spawn(async move {
-            return step.run().await;
+            return step.run(context).await;
         });
 
         let result: Result<String, String> = thread.await.unwrap();

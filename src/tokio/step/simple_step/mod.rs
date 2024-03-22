@@ -30,11 +30,10 @@ impl <C> AsyncStepBuilderTrait<C> for AsyncSimpleStepBuilder<C> {
     }
 
     #[inline]
-    fn get(name: String, context: Arc<C>) -> Self {
+    fn get(name: String) -> Self {
         AsyncSimpleStepBuilder {
             step: AsyncStep {
                 name,
-                context,
                 callback: None,
                 decider: None,
                 end_time: None,
@@ -73,6 +72,6 @@ impl <C> AsyncSimpleStepBuilderTrait<fn(), fn(), C> for AsyncSimpleStepBuilder<C
     }
 }
 
-pub fn get<C>(name: String, context: Arc<C>) -> AsyncSimpleStepBuilder<C> {
-    AsyncSimpleStepBuilder::get(name, context)
+pub fn get<C>(name: String) -> AsyncSimpleStepBuilder<C> {
+    AsyncSimpleStepBuilder::get(name)
 }
