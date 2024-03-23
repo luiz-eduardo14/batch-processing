@@ -17,7 +17,7 @@ pub struct Job {
 }
 
 impl Runner for Job {
-    fn run(mut self) -> Result<String, String> {
+    fn run(self) -> Result<String, String> {
         let multi_threaded = self.multi_threaded.unwrap_or(false);
 
         if multi_threaded {
@@ -61,7 +61,7 @@ impl Runner for Job {
         } else {
             let max_threads = self.max_threads.unwrap_or(1);
             let threads: Arc<Mutex<Vec<JoinHandle<Result<String, String>>>>> = Arc::new(Mutex::new(Vec::new()));
-            let mut steps: Vec<Step> = self.steps;
+            let steps: Vec<Step> = self.steps;
             for step in steps {
                 let threads = Arc::clone(&threads);
                 {

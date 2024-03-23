@@ -7,7 +7,9 @@ struct Test {
 #[cfg(test)]
 mod job_test {
     use std::sync::Arc;
+
     use batch::tokio::job::job_builder::{AsyncJobBuilder, AsyncJobBuilderTrait};
+    use batch::tokio::job::JobResult;
     use batch::tokio::step::{AsyncRunner, AsyncStep};
     use batch::tokio::step::simple_step::{AsyncSimpleStepBuilder, AsyncSimpleStepBuilderTrait};
     use batch::tokio::step::step_builder::AsyncStepBuilderTrait;
@@ -42,11 +44,11 @@ mod job_test {
         let shared_context = Arc::new(String::from("test"));
 
         match job.run(shared_context).await {
-            Ok(_) => {
-                println!("Job finished");
-            }
-            Err(_) => {
+            JobResult::Failure(job_result) => {
                 println!("Job failed");
+            }
+            JobResult::Success(job_result) => {
+                println!("Job finished");
             }
         }
     }

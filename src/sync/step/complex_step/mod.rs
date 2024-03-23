@@ -1,9 +1,4 @@
-use std::io::Read;
-use futures::StreamExt;
-use crate::sync::step::complex_step::processor::Processor;
-use crate::sync::step::complex_step::reader::Readable;
-use crate::sync::step::complex_step::writable::Writable;
-use crate::sync::step::{Runner, Step};
+use crate::sync::step::{Step};
 use crate::sync::step::step_builder::StepBuilderTrait;
 
 pub mod reader;
@@ -19,7 +14,7 @@ pub trait ComplexStepBuilderTrait<I: Sized, O: Sized> {
 
 const DEFAULT_CHUNK_SIZE: usize = 1000;
 
-impl <I: Sized + 'static, O: Sized + 'static> ComplexStepBuilderTrait<I, O> for ComplexStepBuilder<I, O> {
+impl<I: Sized + 'static, O: Sized + 'static> ComplexStepBuilderTrait<I, O> for ComplexStepBuilder<I, O> {
     fn reader(self, reader: Box<dyn Fn() -> Box<dyn Iterator<Item=I>>>) -> Self {
         ComplexStepBuilder {
             reader: Some(reader),

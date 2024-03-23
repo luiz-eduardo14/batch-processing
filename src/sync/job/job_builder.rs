@@ -5,7 +5,6 @@ pub trait JobBuilderTrait {
     fn validate(self) -> Self;
     fn step(self, step: Step) -> Self;
     fn multi_threaded(self, max_threads: usize) -> Self;
-    #[inline]
     fn get(name: String) -> Self;
     fn build(self) -> Job;
 }

@@ -5,7 +5,7 @@ mod async_simple_step_test {
 
     use tokio::spawn;
 
-    use batch::tokio::step::{AsyncRunner, simple_step};
+    use batch::tokio::step::{AsyncRunner, simple_step, StepResult};
     use batch::tokio::step::simple_step::AsyncSimpleStepBuilderTrait;
     use batch::tokio::step::step_builder::AsyncStepBuilderTrait;
 
@@ -37,8 +37,10 @@ mod async_simple_step_test {
             return step.run(context).await;
         });
 
-        let result: Result<String, String> = thread.await.unwrap();
+        let result = thread.await.unwrap();
 
-        assert_eq!(result, Ok("Hello, test".to_string()));
+        if let StepResult::Success(step_status) = result {
+            assert_eq!(step_status.status, "Hello, test".to_string());
+        }
     }
 }

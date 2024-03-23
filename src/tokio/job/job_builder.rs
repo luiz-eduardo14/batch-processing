@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use crate::tokio::job::AsyncJob;
 use crate::tokio::step::AsyncStep;
 
@@ -6,7 +5,6 @@ pub trait AsyncJobBuilderTrait<C: 'static> {
     fn validate(self) -> Self;
     fn step(self, step: AsyncStep<C>) -> Self;
     fn multi_tasks(self, max_tasks: usize) -> Self;
-    #[inline]
     fn get(name: String) -> Self;
     fn build(self) -> AsyncJob<C>;
 }

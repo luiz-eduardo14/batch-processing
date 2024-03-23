@@ -23,9 +23,10 @@ type DeciderCallback = fn() -> bool;
 pub struct StepStatus {
     start_time: Option<u128>,
     end_time: Option<u128>,
-    pub(crate) status: String,
+    pub status: String,
 }
 
+#[derive(Debug, Clone)]
 pub enum StepResult {
     Success(StepStatus),
     Failure(StepStatus),
