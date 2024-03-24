@@ -1,13 +1,5 @@
-use std::future::Future;
-
-struct Test {
-    future: Box<dyn Future<Output=Result<String, String>>>,
-}
-
 #[cfg(test)]
 mod job_test {
-    use std::sync::Arc;
-
     use batch::tokio::job::job_builder::{AsyncJobBuilder, AsyncJobBuilderTrait};
     use batch::tokio::job::JobResult;
     use batch::tokio::step::{AsyncRunner, AsyncStep};
@@ -16,16 +8,12 @@ mod job_test {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn job_simple_step() {
-        let tasklet = move || {
-            println!("Step 1");
-        };
-
-        fn generate_step(step_count: i8) -> AsyncStep<String> {
+        fn generate_step(step_count: i8) -> AsyncStep {
             return AsyncSimpleStepBuilder::get(String::from(format!("step{}", step_count)))
-                .tasklet(Box::new(move |context| {
+                .tasklet(Box::new(move || {
                     return Box::pin(async move {
                         println!("{}", format!("Step {}", step_count));
-                        return Ok(format!("Hello, {}", context));
+                        return Ok(format!("Hello, {}", step_count));
                     });
                 }))
                 .build();
@@ -40,15 +28,12 @@ mod job_test {
         }
 
         let job = job_builder.build();
-
-        let shared_context = Arc::new(String::from("test"));
-
-        match job.run(shared_context).await {
+        match job.run().await {
             JobResult::Failure(job_result) => {
-                println!("Job failed");
+                println!("{:?}", job_result)
             }
             JobResult::Success(job_result) => {
-                println!("Job finished");
+                println!("{:?}", job_result)
             }
         }
     }

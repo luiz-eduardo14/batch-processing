@@ -1,4 +1,4 @@
-use crate::sync::step::{Step, StepCallback};
+use crate::sync::step::{DeciderCallback, Step, StepCallback};
 use crate::sync::step::step_builder::StepBuilderTrait;
 
 pub trait SimpleStepBuilderTrait<I, O> {
@@ -10,7 +10,7 @@ pub struct SimpleStepBuilder {
 }
 
 impl StepBuilderTrait for SimpleStepBuilder {
-    fn decider(self, decider: fn() -> bool) -> Self {
+    fn decider(self, decider: DeciderCallback) -> Self {
         SimpleStepBuilder {
             step: Step {
                 decider: Some(decider),

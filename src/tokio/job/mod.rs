@@ -6,26 +6,30 @@ use futures::lock::Mutex;
 use log::{error, info};
 use tokio::task::{JoinSet};
 
-use crate::tokio::step::{AsyncRunner, AsyncStep, StepResult};
+use crate::tokio::step::{AsyncRunner, AsyncStep, Decider, StepStatus};
 
 pub mod job_builder;
 mod utils;
 
-pub struct AsyncJob<C: 'static> {
+pub struct AsyncJob {
     pub name: String,
     pub start_time: Option<u64>,
     pub end_time: Option<u64>,
-    pub steps: Vec<AsyncStep<C>>,
+    pub steps: Vec<AsyncStep>,
     pub multi_threaded: Option<bool>,
     pub max_tasks: Option<usize>,
 }
 
 #[derive(Debug, Clone)]
 pub struct JobStatus {
+    #[allow(dead_code)]
     start_time: Option<u128>,
+    #[allow(dead_code)]
     end_time: Option<u128>,
+    #[allow(dead_code)]
     status: String,
-    steps_status: Vec<StepResult>,
+    #[allow(dead_code)]
+    steps_status: Vec<StepStatus>,
 }
 
 #[derive(Debug, Clone)]
@@ -39,13 +43,13 @@ fn generate_end_time() -> u128 {
 }
 
 #[async_trait]
-impl<C: 'static + Sync + Send> AsyncRunner<C, JobResult> for AsyncJob<C> {
-    async fn run(mut self, context: Arc<C>) -> JobResult {
+impl AsyncRunner<JobResult> for AsyncJob {
+    async fn run(mut self) -> JobResult {
         let multi_threaded = self.multi_threaded.unwrap_or(false);
         let mut steps = self.steps;
         let steps_len = steps.len().clone();
         let start_time = SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
-        let mut steps_status_vec: Vec<StepResult> = Vec::new();
+        let mut steps_status_vec: Vec<StepStatus> = Vec::new();
 
         if multi_threaded {
             info!("Running job {} with multi-threaded mode", self.name)
@@ -55,23 +59,28 @@ impl<C: 'static + Sync + Send> AsyncRunner<C, JobResult> for AsyncJob<C> {
 
         return if !multi_threaded {
             for step in steps {
+
+                if !step.decide().await {
+                    info!("Skipping step {}", step.name);
+                    continue;
+                }
+
                 let throw_tolerant = step.throw_tolerant.unwrap_or(false).clone();
-                let context = Arc::clone(&context);
-                let step_result = step.run(context).await;
-                let step_result_clone: StepResult = step_result.clone();
+                let step_result = step.run().await;
+                let step_result_clone: StepStatus = step_result.clone();
                 steps_status_vec.push(step_result);
-                match step_result_clone {
-                    StepResult::Success(step_status) => utils::log_step(Ok(step_status.status)),
-                    StepResult::Failure(step_status) => {
+                match step_result_clone.status {
+                    Ok(message) => utils::log_step(Ok(message)),
+                    Err(message) => {
                         if throw_tolerant {
                             return JobResult::Failure(JobStatus {
                                 start_time: Some(start_time),
                                 end_time: Some(generate_end_time()),
-                                status: step_status.status,
+                                status: format!("Job {} failed", self.name),
                                 steps_status: steps_status_vec,
                             });
                         } else {
-                            error!("{}", step_status.status);
+                            error!("{}", message);
                         }
                     }
                 }
@@ -86,16 +95,19 @@ impl<C: 'static + Sync + Send> AsyncRunner<C, JobResult> for AsyncJob<C> {
                 }
             )
         } else {
-            let join_set: Arc<Mutex<JoinSet<StepResult>>> = Arc::new(Mutex::new(JoinSet::new()));
+            let join_set: Arc<Mutex<JoinSet<StepStatus>>> = Arc::new(Mutex::new(JoinSet::new()));
             let max_tasks = self.max_tasks.unwrap();
 
             if steps_len <= max_tasks {
                 for step in steps {
+                    if !step.decide().await {
+                        info!("Skipping step {}", step.name);
+                        continue;
+                    }
                     let throw_tolerant = step.throw_tolerant.unwrap_or(false).clone();
-                    let context = Arc::clone(&context);
                     let join_set = Arc::clone(&join_set);
                     let join_set = join_set.lock().await;
-                    utils::mount_step_task(step, context, throw_tolerant, join_set).await;
+                    utils::mount_step_task(step, throw_tolerant, join_set).await;
                 }
 
                 let join_set = Arc::clone(&join_set);
@@ -121,11 +133,10 @@ impl<C: 'static + Sync + Send> AsyncRunner<C, JobResult> for AsyncJob<C> {
                 let step = current_step.unwrap();
 
                 {
-                    let context = Arc::clone(&context);
                     let throw_tolerant = step.throw_tolerant.unwrap_or(false).clone();
                     let join_set = Arc::clone(&join_set);
                     let join_set = join_set.lock().await;
-                    utils::mount_step_task(step, context, throw_tolerant, join_set).await;
+                    utils::mount_step_task(step, throw_tolerant, join_set).await;
                 }
 
                 let join_set = Arc::clone(&join_set);
@@ -151,4 +162,4 @@ impl<C: 'static + Sync + Send> AsyncRunner<C, JobResult> for AsyncJob<C> {
     }
 }
 
-unsafe impl<C: 'static> Send for AsyncJob<C> {}
+unsafe impl Send for AsyncJob {}

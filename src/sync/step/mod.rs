@@ -6,18 +6,24 @@ pub trait Runner where Self: Sized {
     fn run(self) -> Result<String, String>;
 }
 
+pub trait Decider {
+    fn is_run(&self) -> bool;
+}
+
 pub type StepCallback = Box<dyn FnOnce() + Send>;
 
-type DeciderCallback = fn() -> bool;
+pub type DeciderCallback = Box<dyn Fn() -> bool>;
 
 
 pub struct Step {
-    start_time: Option<u64>,
-    end_time: Option<u64>,
+    #[allow(dead_code)]
+    pub(crate) start_time: Option<u64>,
+    #[allow(dead_code)]
+    pub(crate) end_time: Option<u64>,
     pub name: String,
     pub throw_tolerant: Option<bool>,
-    decider: Option<DeciderCallback>,
-    callback: Option<Box<dyn FnOnce()>>,
+    pub(crate) decider: Option<DeciderCallback>,
+    pub(crate) callback: Option<Box<dyn FnOnce()>>,
 }
 
 impl Runner for Step {
@@ -33,6 +39,15 @@ impl Runner for Step {
                 callback();
                 Ok(format!("Step {} completed", self.name))
             }
+        };
+    }
+}
+
+impl Decider for Step {
+    fn is_run (&self) -> bool {
+        return match &self.decider {
+            None => true,
+            Some(decider) => decider(),
         };
     }
 }

@@ -1,46 +1,70 @@
 #[cfg(test)]
 mod async_simple_step_test {
-    use std::future::Future;
     use std::sync::Arc;
 
-    use tokio::spawn;
+    use tokio::join;
+    use tokio::sync::Mutex;
 
-    use batch::tokio::step::{AsyncRunner, simple_step, StepResult};
+    use batch::tokio::step::{AsyncRunner, AsyncStep, simple_step};
     use batch::tokio::step::simple_step::AsyncSimpleStepBuilderTrait;
     use batch::tokio::step::step_builder::AsyncStepBuilderTrait;
 
-    struct ContextTest {
-        pub name: String,
-    }
-
-    async fn run_callback(context: impl Future<Output = ContextTest> + Sized) -> Result<String, String> {
-        let context = context.await;
-        return Ok(format!("Hello, {}", context.name));
-    }
-
     #[tokio::test(flavor = "multi_thread")]
     async fn test_simple_step() {
+        let vector = Arc::new(Mutex::new(vec![1, 2, 3]));
+        let shared_vector = Arc::clone(&vector);
         let step = simple_step::get("test".to_string())
-            .tasklet(Box::new(move |context: Arc<ContextTest>| {
-            return Box::pin(async move {
-                return Ok(format!("Hello, {}", context.name));
-            })
-        })).build();
+            .tasklet(Box::new(
+                move || {
+                    let vector = shared_vector.clone();
+                    return Box::pin(async move {
+                        let mut vector = vector.lock().await;
+                        vector.push(4);
+                        println!("{}", format!("Step {}", String::new()));
+                        return Ok(format!("Hello, {}", String::new()));
+                    });
+                }
+            )).build();
 
-        let context_struct = ContextTest {
-            name: "test".to_string()
-        };
-        let shared_context = Arc::new(context_struct);
-        let context = Arc::clone(&shared_context);
+        step.run().await;
 
-        let thread = spawn(async move {
-            return step.run(context).await;
-        });
+        let vector = Arc::clone(&vector);
+        let shared_vector = vector.lock().await;
 
-        let result = thread.await.unwrap();
+        println!("{:?}", shared_vector);
+    }
 
-        if let StepResult::Success(step_status) = result {
-            assert_eq!(step_status.status, "Hello, test".to_string());
+
+    #[tokio::test]
+    async fn test_simple_step_with_decider() {
+        fn generate_step_with_sleep(name: String, millis_time: u64) -> AsyncStep {
+            return simple_step::get(name.clone())
+                .tasklet(Box::new(
+                    move || {
+                        let name = name.clone();
+                        return Box::pin(async move {
+                            tokio::time::sleep(std::time::Duration::from_millis(millis_time)).await;
+                            // println!("{}", format!("Step {}", name));
+                            return Ok(format!("Hello, {}", name));
+                        });
+                    }
+                ))
+                .decider(Box::new(
+                    move || {
+                        return Box::pin(async move {
+                            return true;
+                        });
+                    }
+                ))
+                .build();
         }
+
+        let step1 = generate_step_with_sleep("step1".to_string(), 100);
+        let step2 = generate_step_with_sleep("step2".to_string(), 200);
+
+        let (step1, step2) = join!(step1.run(), step2.run());
+
+        assert_eq!(step1.status, Ok("Hello, step1".to_string()));
+        assert_eq!(step2.status, Ok("Hello, step2".to_string()));
     }
 }

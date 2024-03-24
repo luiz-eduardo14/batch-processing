@@ -1,7 +1,7 @@
-use crate::sync::step::Step;
+use crate::sync::step::{DeciderCallback, Step};
 
 pub trait StepBuilderTrait {
-    fn decider(self, decider: fn() -> bool) -> Self;
+    fn decider(self, decider: DeciderCallback) -> Self;
     fn throw_tolerant(self) -> Self;
     fn get(name: String) -> Self;
     fn validate(self) -> Self;

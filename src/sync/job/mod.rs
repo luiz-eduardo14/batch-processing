@@ -3,7 +3,7 @@ use std::thread::{JoinHandle, spawn};
 
 use log::{error, info};
 
-use crate::sync::step::{Runner, Step};
+use crate::sync::step::{Decider, Runner, Step};
 
 pub mod job_builder;
 
@@ -19,7 +19,7 @@ pub struct Job {
 impl Runner for Job {
     fn run(self) -> Result<String, String> {
         let multi_threaded = self.multi_threaded.unwrap_or(false);
-
+        let steps = self.steps;
         if multi_threaded {
             info!("Running job {} with multi-threaded mode", self.name)
         } else {
@@ -38,8 +38,16 @@ impl Runner for Job {
         }
 
         return if !multi_threaded {
-            for step in self.steps {
+            for step in steps {
+                if step.is_run().clone() {
+                    info!("Step {} is skipped", &step.name);
+                    continue;
+                }
+
                 let throw_tolerant = step.throw_tolerant.unwrap_or(false).clone();
+                let step_name = step.name.clone();
+
+                info!("Running step {}", &step_name);
 
                 match step.run() {
                     Ok(success_message) => {
@@ -47,6 +55,7 @@ impl Runner for Job {
                     }
                     Err(error_message) => {
                         if throw_tolerant {
+                            error!("Error occurred in step {} but it is throw tolerant", &step_name);
                             panic!("{}", error_message);
                         } else {
                             error!("{}", error_message);
@@ -61,7 +70,6 @@ impl Runner for Job {
         } else {
             let max_threads = self.max_threads.unwrap_or(1);
             let threads: Arc<Mutex<Vec<JoinHandle<Result<String, String>>>>> = Arc::new(Mutex::new(Vec::new()));
-            let steps: Vec<Step> = self.steps;
             for step in steps {
                 let threads = Arc::clone(&threads);
                 {
@@ -75,8 +83,8 @@ impl Runner for Job {
                     let threads_len = threads.len().clone();
 
                     if threads_len >= max_threads {
-                        while let Some(joinHandler) = threads.pop() {
-                            let result = joinHandler.join().unwrap();
+                        while let Some(join_handler) = threads.pop() {
+                            let result = join_handler.join().unwrap();
                             log_step(result);
                         }
                     }
@@ -87,8 +95,8 @@ impl Runner for Job {
             let mut threads = threads.lock().unwrap();
 
             if !threads.is_empty() {
-                while let Some(joinHandler) = threads.pop() {
-                    let result = joinHandler.join().unwrap();
+                while let Some(join_handler) = threads.pop() {
+                    let result = join_handler.join().unwrap();
                     log_step(result);
                 }
             }

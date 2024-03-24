@@ -1,8 +1,10 @@
 use std::sync::Arc;
+
 use futures::lock::{Mutex, MutexGuard};
 use log::{error, info};
 use tokio::task::{AbortHandle, JoinSet};
-use crate::tokio::step::{AsyncRunner, AsyncStep, StepResult};
+
+use crate::tokio::step::{AsyncRunner, AsyncStep, StepStatus};
 
 pub fn log_step(message: Result<String, String>) {
     match message {
@@ -15,21 +17,21 @@ pub fn log_step(message: Result<String, String>) {
     }
 }
 
-pub async fn run_all_join_handles(join_set: Arc<Mutex<JoinSet<StepResult>>>) -> Vec<StepResult> {
+pub async fn run_all_join_handles(join_set: Arc<Mutex<JoinSet<StepStatus>>>) -> Vec<StepStatus> {
     let join_set = Arc::clone(&join_set);
     let mut join_set = join_set.lock().await;
     let mut is_panicked = false;
-    let mut step_results: Vec<StepResult> = Vec::new();
+    let mut step_results: Vec<StepStatus> = Vec::new();
     while let Some(join_handle) = join_set.join_next().await {
         match join_handle {
-            Ok(message) => {
-                step_results.push(message.clone());
-                match message {
-                    StepResult::Success(status) => {
-                        log_step(Ok(status.status));
+            Ok(step_status) => {
+                step_results.push(step_status.clone());
+                match step_status.status {
+                    Ok(message) => {
+                        log_step(Ok(message));
                     }
-                    StepResult::Failure(status) => {
-                        log_step(Err(status.status));
+                    Err(message) => {
+                        log_step(Err(message));
                     }
 
                 }
@@ -52,25 +54,22 @@ pub async fn run_all_join_handles(join_set: Arc<Mutex<JoinSet<StepResult>>>) -> 
     return step_results;
 }
 
-pub async fn mount_step_task<C: 'static + Sync + Send>(step: AsyncStep<C>, context: Arc<C>, throw_tolerant: bool, mut join_set: MutexGuard<'_, JoinSet<StepResult>>) -> AbortHandle {
+pub async fn mount_step_task(step: AsyncStep, throw_tolerant: bool, mut join_set: MutexGuard<'_, JoinSet<StepStatus>>) -> AbortHandle {
     return join_set.spawn(async move {
-        return match step.run(context).await {
-            StepResult::Success(status) => {
-                log_step(Ok(status.status.clone()));
-                StepResult::Success(
-                    status
-                )
+        let step_result = step.run().await;
+        match step_result.status.clone() {
+            Ok(message) => {
+                log_step(Ok(message.clone()));
             }
-            StepResult::Failure(status) => {
+            Err(message) => {
                 if throw_tolerant {
-                    panic!("{}", status.status);
+                    panic!("{}", message);
                 } else {
-                    log_step(Err(status.status.clone()));
-                    StepResult::Failure(
-                        status
-                    )
+                    log_step(Err(message));
                 }
             }
         };
+
+        return step_result;
     });
 }
