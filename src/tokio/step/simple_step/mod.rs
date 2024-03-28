@@ -1,17 +1,16 @@
-use std::sync::Arc;
-use crate::tokio::step::{AsyncStep, DynAsyncCallback};
+use crate::tokio::step::{AsyncStep, DeciderCallback, DynAsyncCallback};
 use crate::tokio::step::step_builder::AsyncStepBuilderTrait;
 
-pub trait AsyncSimpleStepBuilderTrait<I, O, C> {
-    fn tasklet(self, step_callback: Box<DynAsyncCallback<Arc<C>, Result<String, String>>>) -> Self;
+pub trait AsyncSimpleStepBuilderTrait<I, O> {
+    fn tasklet(self, step_callback: Box<DynAsyncCallback<Result<String, String>>>) -> Self;
 }
 
-pub struct AsyncSimpleStepBuilder<C: 'static> {
-    step: AsyncStep<C>,
+pub struct AsyncSimpleStepBuilder {
+    step: AsyncStep,
 }
 
-impl <C> AsyncStepBuilderTrait<C> for AsyncSimpleStepBuilder<C> {
-    fn decider(self, decider: fn() -> bool) -> Self {
+impl AsyncStepBuilderTrait for AsyncSimpleStepBuilder {
+    fn decider(self, decider: DeciderCallback) -> Self {
         AsyncSimpleStepBuilder {
             step: AsyncStep {
                 decider: Some(decider),
@@ -53,14 +52,14 @@ impl <C> AsyncStepBuilderTrait<C> for AsyncSimpleStepBuilder<C> {
         return self;
     }
 
-    fn build(self) -> AsyncStep<C> {
+    fn build(self) -> AsyncStep {
         let current_self = self.validate();
         return current_self.step;
     }
 }
 
-impl <C> AsyncSimpleStepBuilderTrait<fn(), fn(), C> for AsyncSimpleStepBuilder<C> {
-    fn tasklet(self, step_callback: Box<DynAsyncCallback<Arc<C>, Result<String, String>>>) -> Self {
+impl AsyncSimpleStepBuilderTrait<fn(), fn()> for AsyncSimpleStepBuilder {
+    fn tasklet(self, step_callback: Box<DynAsyncCallback<Result<String, String>>>) -> Self {
         return AsyncSimpleStepBuilder {
             step: AsyncStep {
                 callback: Some(step_callback),
@@ -70,6 +69,6 @@ impl <C> AsyncSimpleStepBuilderTrait<fn(), fn(), C> for AsyncSimpleStepBuilder<C
     }
 }
 
-pub fn get<C>(name: String) -> AsyncSimpleStepBuilder<C> {
+pub fn get(name: String) -> AsyncSimpleStepBuilder {
     AsyncSimpleStepBuilder::get(name)
 }

@@ -1,19 +1,19 @@
 use crate::tokio::job::AsyncJob;
 use crate::tokio::step::AsyncStep;
 
-pub trait AsyncJobBuilderTrait<C: 'static> {
+pub trait AsyncJobBuilderTrait {
     fn validate(self) -> Self;
-    fn step(self, step: AsyncStep<C>) -> Self;
+    fn step(self, step: AsyncStep) -> Self;
     fn multi_tasks(self, max_tasks: usize) -> Self;
     fn get(name: String) -> Self;
-    fn build(self) -> AsyncJob<C>;
+    fn build(self) -> AsyncJob;
 }
 
-pub struct AsyncJobBuilder<C: 'static> {
-    job: AsyncJob<C>,
+pub struct AsyncJobBuilder {
+    job: AsyncJob,
 }
 
-impl <C: 'static> AsyncJobBuilderTrait<C> for AsyncJobBuilder<C> {
+impl AsyncJobBuilderTrait for AsyncJobBuilder {
     fn validate(self) -> Self {
         if self.job.steps.is_empty() {
             panic!("At least one step is required");
@@ -21,7 +21,7 @@ impl <C: 'static> AsyncJobBuilderTrait<C> for AsyncJobBuilder<C> {
         self
     }
 
-    fn step(mut self, step: AsyncStep<C>) -> Self {
+    fn step(mut self, step: AsyncStep) -> Self {
         self.job.steps.push(step);
         self
     }
@@ -50,7 +50,7 @@ impl <C: 'static> AsyncJobBuilderTrait<C> for AsyncJobBuilder<C> {
         }
     }
 
-    fn build(self) -> AsyncJob<C> {
+    fn build(self) -> AsyncJob {
         let current_self = self.validate();
         return current_self.job;
     }

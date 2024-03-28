@@ -1,9 +1,9 @@
-use crate::tokio::step::AsyncStep;
+use crate::tokio::step::{AsyncStep, DeciderCallback};
 
-pub trait AsyncStepBuilderTrait<C> {
-    fn decider(self, decider: fn() -> bool) -> Self;
+pub trait AsyncStepBuilderTrait {
+    fn decider(self, decider: DeciderCallback) -> Self;
     fn throw_tolerant(self) -> Self;
     fn get(name: String) -> Self;
     fn validate(self) -> Self;
-    fn build(self) -> AsyncStep<C>;
+    fn build(self) -> AsyncStep;
 }
