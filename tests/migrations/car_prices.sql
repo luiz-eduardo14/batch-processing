@@ -13,7 +13,7 @@ create table if not exists car_prices(
                            color text,
                            interior text,
                            seller text,
-                           mmr int,
+                           nmr int,
                            sellingprice int,
                            saledate date
 );
