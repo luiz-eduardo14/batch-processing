@@ -1,4 +1,4 @@
-use crate::sync::step::{Step};
+use crate::sync::step::{DeciderCallback, Step};
 use crate::sync::step::step_builder::StepBuilderTrait;
 
 pub mod reader;
@@ -53,7 +53,7 @@ pub struct ComplexStepBuilder<I: Sized, O: Sized> {
 }
 
 impl<I: Sized + 'static, O: Sized + 'static> StepBuilderTrait for ComplexStepBuilder<I, O> where Self: Sized {
-    fn decider(self, decider: fn() -> bool) -> Self {
+    fn decider(self, decider: DeciderCallback) -> Self {
         ComplexStepBuilder {
             step: Step {
                 decider: Some(decider),
