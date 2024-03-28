@@ -1,3 +1,6 @@
 /target
 /Cargo.lock
 .idea
+data/*.csv
+data/*.json
+.env
