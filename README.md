@@ -62,16 +62,12 @@ let step_builder: AsyncComplexStepBuilder<Result<StringRecord, csv_async::Error>
             let all_memory_usage = Arc::clone(&all_memory_usage);
             return Box::pin(
                 async move {
-                    // let mut vec = vec_car_price.chunks(2000);
                     let mut conn = pool.get().await.expect("Error getting connection");
-                    // while let Some(chunk) = vec.next() {
                         insert_into(car_prices::table)
                             .values(vec_car_price)
-                            // .values(chunk)
                             .execute(&mut conn)
                             .await
                             .expect("Error inserting data");
-                    // }
                     let current_mem = PEAK_ALLOC.current_usage_as_mb() as i32;
                     all_memory_usage.lock().await.push(current_mem);
                 }
