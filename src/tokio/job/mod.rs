@@ -11,39 +11,57 @@ use crate::tokio::step::{AsyncRunner, AsyncStep, Decider, StepStatus};
 pub mod job_builder;
 mod utils;
 
+/// A struct representing an asynchronous job.
 pub struct AsyncJob {
+    /// The name of the job.
     pub name: String,
+    /// The start time of the job execution.
     pub start_time: Option<u64>,
+    /// The end time of the job execution.
     pub end_time: Option<u64>,
+    /// The list of steps to be executed in the job.
     pub steps: Vec<AsyncStep>,
+    /// Indicates whether the job is to be executed in multithreaded mode.
     pub multi_threaded: Option<bool>,
+    /// The maximum number of tasks allowed for multithreaded execution.
     pub max_tasks: Option<usize>,
 }
 
+/// Represents the status of a job execution.
 #[derive(Debug, Clone)]
 pub struct JobStatus {
+    /// The start time of the job execution.
     #[allow(dead_code)]
     start_time: Option<u128>,
+    /// The end time of the job execution.
     #[allow(dead_code)]
     end_time: Option<u128>,
+    /// The status message of the job execution.
     #[allow(dead_code)]
     status: String,
+    /// The status of each step in the job execution.
     #[allow(dead_code)]
     steps_status: Vec<StepStatus>,
 }
 
+/// Represents the result of a job execution.
 #[derive(Debug, Clone)]
 pub enum JobResult {
+    /// Indicates a successful job execution.
     Success(JobStatus),
+    /// Indicates a failed job execution.
     Failure(JobStatus),
 }
 
+/// Generates the end time of a job execution.
 fn generate_end_time() -> u128 {
     return SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
 }
 
+
 #[async_trait]
 impl AsyncRunner<JobResult> for AsyncJob {
+    /// Executes the asynchronous job and returns its result.
     async fn run(mut self) -> JobResult {
         let multi_threaded = self.multi_threaded.unwrap_or(false);
         let mut steps = self.steps;
@@ -162,4 +180,5 @@ impl AsyncRunner<JobResult> for AsyncJob {
     }
 }
 
+// Allows `AsyncJob` to be sent between threads safely.
 unsafe impl Send for AsyncJob {}
