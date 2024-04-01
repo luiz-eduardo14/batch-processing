@@ -7,12 +7,18 @@ pub mod complex_step;
 pub mod simple_step;
 pub mod step_builder;
 
+/// A trait for objects that can be executed.
 pub trait Runner where Self: Sized {
+    /// The type of output produced by the execution.
     type Output;
+
+    /// Executes the object and returns the output.
     fn run(self) -> Self::Output;
 }
 
+/// A trait for objects that can make decisions.
 pub trait Decider {
+    /// Checks if the object should be executed.
     fn is_run(&self) -> bool;
 }
 
@@ -20,19 +26,29 @@ pub type StepCallback = Box<dyn FnOnce() + Send>;
 
 pub type DeciderCallback = Box<dyn Fn() -> bool>;
 
+/// Represents a synchronous step in a job.
 pub struct SyncStep {
+    /// The start time of the step execution.
     #[allow(dead_code)]
     pub(crate) start_time: Option<u64>,
+    /// The end time of the step execution.
     #[allow(dead_code)]
     pub(crate) end_time: Option<u64>,
+    /// The name of the step.
     pub name: String,
+    /// Indicates whether the step is tolerant to thrown exceptions.
     pub throw_tolerant: Option<bool>,
+    /// The decider callback for the step.
     pub(crate) decider: Option<DeciderCallback>,
+    /// The callback function to be executed as the step.
     pub(crate) callback: Option<Box<dyn FnOnce() -> () + Send>>,
 }
 
 impl Runner for SyncStep {
+    /// The output type of the step execution.
     type Output = StepStatus;
+
+    /// Executes the step and returns its status.
     fn run(self) -> Self::Output {
         let start_time = SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
 
@@ -56,7 +72,8 @@ impl Runner for SyncStep {
 }
 
 impl Decider for SyncStep {
-    fn is_run (&self) -> bool {
+    /// Checks if the step should be executed based on the decider callback.
+    fn is_run(&self) -> bool {
         return match &self.decider {
             None => true,
             Some(decider) => decider(),
@@ -64,4 +81,5 @@ impl Decider for SyncStep {
     }
 }
 
+// Allows `SyncStep` to be sent between threads safely.
 unsafe impl Send for SyncStep {}
