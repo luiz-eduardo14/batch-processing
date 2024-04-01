@@ -2,7 +2,7 @@
 mod async_complex_step_test {
     use futures::{stream, Stream};
 
-    use batch::tokio::step::AsyncRunner;
+    use batch::tokio::step::AsyncStepRunner;
     use batch::tokio::step::complex_step::{AsyncComplexStepBuilder, ComplexStepBuilderTrait};
     use batch::tokio::step::step_builder::AsyncStepBuilderTrait;
 

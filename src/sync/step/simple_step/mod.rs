@@ -1,4 +1,4 @@
-use crate::sync::step::{DeciderCallback, Step, StepCallback};
+use crate::sync::step::{DeciderCallback, SyncStep, StepCallback};
 use crate::sync::step::step_builder::StepBuilderTrait;
 
 pub trait SimpleStepBuilderTrait<I, O> {
@@ -6,13 +6,13 @@ pub trait SimpleStepBuilderTrait<I, O> {
 }
 
 pub struct SimpleStepBuilder {
-    step: Step,
+    step: SyncStep,
 }
 
 impl StepBuilderTrait for SimpleStepBuilder {
     fn decider(self, decider: DeciderCallback) -> Self {
         SimpleStepBuilder {
-            step: Step {
+            step: SyncStep {
                 decider: Some(decider),
                 ..self.step
             }
@@ -21,7 +21,7 @@ impl StepBuilderTrait for SimpleStepBuilder {
 
     fn throw_tolerant(self) -> Self {
         SimpleStepBuilder {
-            step: Step {
+            step: SyncStep {
                 throw_tolerant: Some(true),
                 ..self.step
             }
@@ -31,7 +31,7 @@ impl StepBuilderTrait for SimpleStepBuilder {
     #[inline]
     fn get(name: String) -> Self {
         SimpleStepBuilder {
-            step: Step {
+            step: SyncStep {
                 name,
                 callback: None,
                 decider: None,
@@ -54,7 +54,7 @@ impl StepBuilderTrait for SimpleStepBuilder {
         return self;
     }
 
-    fn build(self) -> Step {
+    fn build(self) -> SyncStep {
         let current_self = self.validate();
         return current_self.step;
     }
@@ -63,7 +63,7 @@ impl StepBuilderTrait for SimpleStepBuilder {
 impl SimpleStepBuilderTrait<fn(), fn()> for SimpleStepBuilder {
     fn tasklet(self, step_callback: StepCallback) -> Self {
         return SimpleStepBuilder {
-            step: Step {
+            step: SyncStep {
                 callback: Some(step_callback),
                 ..self.step
             }

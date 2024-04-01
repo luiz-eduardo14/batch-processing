@@ -4,9 +4,10 @@ use std::time::SystemTime;
 use async_trait::async_trait;
 use futures::lock::Mutex;
 use log::{error, info};
-use tokio::task::{JoinSet};
+use tokio::task::JoinSet;
 
-use crate::tokio::step::{AsyncRunner, AsyncStep, Decider, StepStatus};
+use crate::core::step::StepStatus;
+use crate::tokio::step::{AsyncStep, AsyncStepRunner, Decider};
 
 pub mod job_builder;
 mod utils;
@@ -32,25 +33,16 @@ pub struct AsyncJob {
 pub struct JobStatus {
     /// The start time of the job execution.
     #[allow(dead_code)]
-    start_time: Option<u128>,
+    pub start_time: Option<u128>,
     /// The end time of the job execution.
     #[allow(dead_code)]
-    end_time: Option<u128>,
+    pub end_time: Option<u128>,
     /// The status message of the job execution.
     #[allow(dead_code)]
-    status: String,
+    pub status: Result<String, String>,
     /// The status of each step in the job execution.
     #[allow(dead_code)]
-    steps_status: Vec<StepStatus>,
-}
-
-/// Represents the result of a job execution.
-#[derive(Debug, Clone)]
-pub enum JobResult {
-    /// Indicates a successful job execution.
-    Success(JobStatus),
-    /// Indicates a failed job execution.
-    Failure(JobStatus),
+    pub steps_status: Vec<StepStatus>,
 }
 
 /// Generates the end time of a job execution.
@@ -60,9 +52,9 @@ fn generate_end_time() -> u128 {
 
 
 #[async_trait]
-impl AsyncRunner<JobResult> for AsyncJob {
+impl AsyncStepRunner<JobStatus> for AsyncJob {
     /// Executes the asynchronous job and returns its result.
-    async fn run(mut self) -> JobResult {
+    async fn run(mut self) -> JobStatus {
         let multi_threaded = self.multi_threaded.unwrap_or(false);
         let mut steps = self.steps;
         let steps_len = steps.len().clone();
@@ -77,7 +69,6 @@ impl AsyncRunner<JobResult> for AsyncJob {
 
         return if !multi_threaded {
             for step in steps {
-
                 if !step.decide().await {
                     info!("Skipping step {}", step.name);
                     continue;
@@ -91,12 +82,12 @@ impl AsyncRunner<JobResult> for AsyncJob {
                     Ok(message) => utils::log_step(Ok(message)),
                     Err(message) => {
                         if throw_tolerant {
-                            return JobResult::Failure(JobStatus {
+                            return JobStatus {
                                 start_time: Some(start_time),
                                 end_time: Some(generate_end_time()),
-                                status: format!("Job {} failed", self.name),
+                                status: Err(format!("Job {} failed", self.name)),
                                 steps_status: steps_status_vec,
-                            });
+                            };
                         } else {
                             error!("{}", message);
                         }
@@ -104,14 +95,13 @@ impl AsyncRunner<JobResult> for AsyncJob {
                 }
             }
 
-            JobResult::Success(
-                JobStatus {
-                    start_time: Some(start_time),
-                    end_time: Some(generate_end_time()),
-                    status: format!("Job {} completed", self.name),
-                    steps_status: steps_status_vec,
-                }
-            )
+
+            JobStatus {
+                start_time: Some(start_time),
+                end_time: Some(generate_end_time()),
+                status: Ok(format!("Job {} completed", self.name)),
+                steps_status: steps_status_vec,
+            }
         } else {
             let join_set: Arc<Mutex<JoinSet<StepStatus>>> = Arc::new(Mutex::new(JoinSet::new()));
             let max_tasks = self.max_tasks.unwrap();
@@ -131,14 +121,13 @@ impl AsyncRunner<JobResult> for AsyncJob {
                 let join_set = Arc::clone(&join_set);
                 let join_set_vec = utils::run_all_join_handles(join_set).await;
 
-                return JobResult::Success(
+                return
                     JobStatus {
                         start_time: Some(start_time),
                         end_time: Some(generate_end_time()),
-                        status: format!("Job {} completed", self.name),
+                        status: Ok(format!("Job {} completed", self.name)),
                         steps_status: join_set_vec,
-                    }
-                );
+                    };
             }
 
             loop {
@@ -168,14 +157,13 @@ impl AsyncRunner<JobResult> for AsyncJob {
                 }
             }
 
-            return JobResult::Success(
+            return
                 JobStatus {
                     start_time: Some(start_time),
                     end_time: Some(generate_end_time()),
-                    status: format!("Job {} completed", self.name),
+                    status: Ok(format!("Job {} completed", self.name)),
                     steps_status: steps_status_vec,
-                }
-            );
+                };
         };
     }
 }

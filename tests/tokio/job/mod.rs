@@ -2,8 +2,7 @@
 mod job_test {
     use futures::{Stream, stream};
     use batch::tokio::job::job_builder::{AsyncJobBuilder, AsyncJobBuilderTrait};
-    use batch::tokio::job::JobResult;
-    use batch::tokio::step::{AsyncRunner, AsyncStep};
+    use batch::tokio::step::{AsyncStepRunner, AsyncStep};
     use batch::tokio::step::complex_step::{AsyncComplexStepBuilder, ComplexStepBuilderTrait};
     use batch::tokio::step::simple_step::{AsyncSimpleStepBuilder, AsyncSimpleStepBuilderTrait};
     use batch::tokio::step::step_builder::AsyncStepBuilderTrait;
@@ -30,14 +29,8 @@ mod job_test {
         }
 
         let job = job_builder.build();
-        match job.run().await {
-            JobResult::Failure(job_result) => {
-                println!("{:?}", job_result)
-            }
-            JobResult::Success(job_result) => {
-                println!("{:?}", job_result)
-            }
-        }
+        let job_status = job.run().await;
+        println!("{:?}", job_status);
     }
 
 
@@ -52,10 +45,9 @@ mod job_test {
                         let step_count = step_count;
                         return Box::pin(
                             async move {
+                                let mut vec: Vec<i32> = Vec::new();
 
-                                let mut vec: Vec<i32>  = Vec::new();
-
-                                for n in 0..= step_count {
+                                for n in 0..=step_count {
                                     vec.push(n);
                                 }
 
@@ -87,7 +79,7 @@ mod job_test {
         }
 
         let mut job_builder = AsyncJobBuilder::get(String::from("job_complex_step"))
-                .multi_tasks(4)
+            .multi_tasks(4)
             ;
 
         for i in 1..=4 {

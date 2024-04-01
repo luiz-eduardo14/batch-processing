@@ -3,8 +3,9 @@ use std::sync::Arc;
 use futures::lock::{Mutex, MutexGuard};
 use log::{error, info};
 use tokio::task::{AbortHandle, JoinSet};
+use crate::core::step::StepStatus;
 
-use crate::tokio::step::{AsyncRunner, AsyncStep, StepStatus};
+use crate::tokio::step::{AsyncStepRunner, AsyncStep};
 
 pub fn log_step(message: Result<String, String>) {
     match message {
@@ -20,7 +21,7 @@ pub fn log_step(message: Result<String, String>) {
 pub async fn run_all_join_handles(join_set: Arc<Mutex<JoinSet<StepStatus>>>) -> Vec<StepStatus> {
     let join_set = Arc::clone(&join_set);
     let mut join_set = join_set.lock().await;
-    let mut is_panicked = false;
+    let mut panicked: (Option<String>, bool) = (None, false);
     let mut step_results: Vec<StepStatus> = Vec::new();
     while let Some(join_handle) = join_set.join_next().await {
         match join_handle {
@@ -33,12 +34,11 @@ pub async fn run_all_join_handles(join_set: Arc<Mutex<JoinSet<StepStatus>>>) -> 
                     Err(message) => {
                         log_step(Err(message));
                     }
-
                 }
             }
             Err(join_error) => {
                 if join_error.is_panic() {
-                    is_panicked = true;
+                    panicked = (Some(join_error.to_string()), true);
                     break;
                 } else {
                     log_step(Err(format!("Join error: {:?}", join_error)));
@@ -47,7 +47,8 @@ pub async fn run_all_join_handles(join_set: Arc<Mutex<JoinSet<StepStatus>>>) -> 
         };
     }
 
-    if is_panicked {
+    if panicked.1 {
+        error!("Panicked with message: {:?}", panicked.0);
         join_set.abort_all();
     }
 

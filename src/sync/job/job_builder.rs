@@ -1,9 +1,9 @@
 use crate::sync::job::Job;
-use crate::sync::step::Step;
+use crate::sync::step::SyncStep;
 
 pub trait JobBuilderTrait {
     fn validate(self) -> Self;
-    fn step(self, step: Step) -> Self;
+    fn step(self, step: SyncStep) -> Self;
     fn multi_threaded(self, max_threads: usize) -> Self;
     fn get(name: String) -> Self;
     fn build(self) -> Job;
@@ -21,7 +21,7 @@ impl JobBuilderTrait for JobBuilder {
         self
     }
 
-    fn step(mut self, step: Step) -> Self {
+    fn step(mut self, step: SyncStep) -> Self {
         self.job.steps.push(step);
         self
     }

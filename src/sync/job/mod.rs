@@ -3,7 +3,7 @@ use std::thread::{JoinHandle, spawn};
 
 use log::{error, info};
 
-use crate::sync::step::{Decider, Runner, Step};
+use crate::sync::step::{Decider, Runner, SyncStep};
 
 pub mod job_builder;
 
@@ -11,7 +11,7 @@ pub struct Job {
     pub name: String,
     pub start_time: Option<u64>,
     pub end_time: Option<u64>,
-    pub steps: Vec<Step>,
+    pub steps: Vec<SyncStep>,
     pub multi_threaded: Option<bool>,
     pub max_threads: Option<usize>,
 }

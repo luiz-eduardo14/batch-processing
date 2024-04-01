@@ -2,6 +2,7 @@ use std::time::SystemTime;
 
 use async_trait::async_trait;
 use futures::future::BoxFuture;
+use crate::core::step::StepStatus;
 
 pub mod simple_step;
 pub mod step_builder;
@@ -9,7 +10,7 @@ pub mod complex_step;
 
 /// A trait for running asynchronous tasks and returning a result.
 #[async_trait]
-pub trait AsyncRunner<R> where Self: Sized + Send {
+pub trait AsyncStepRunner<R> where Self: Sized + Send {
     /// Executes the asynchronous task and returns the result.
     async fn run(self) -> R;
 }
@@ -27,17 +28,6 @@ pub type DynAsyncCallback<O> = dyn Send + Sync + Fn() -> BoxFuture<'static, O>;
 /// Type alias for a decider callback function.
 pub type DeciderCallback = Box<dyn Send + Sync + Fn() -> BoxFuture<'static, bool>>;
 
-/// Represents the status of a step execution.
-#[derive(Debug, Clone)]
-pub struct StepStatus {
-    /// The start time of the step execution.
-    pub start_time: Option<u128>,
-    /// The end time of the step execution.
-    pub end_time: Option<u128>,
-    /// The status result of the step execution.
-    pub status: Result<String, String>,
-}
-
 /// Represents an asynchronous step with configurable callbacks and deciders.
 pub struct AsyncStep {
     /// The name of the step.
@@ -51,7 +41,7 @@ pub struct AsyncStep {
 }
 
 #[async_trait]
-impl AsyncRunner<StepStatus> for AsyncStep {
+impl AsyncStepRunner<StepStatus> for AsyncStep {
     /// Executes the asynchronous step and returns its status.
     async fn run(self) -> StepStatus {
         let start_time = SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();

@@ -14,8 +14,7 @@ pub type StepCallback = Box<dyn FnOnce() + Send>;
 
 pub type DeciderCallback = Box<dyn Fn() -> bool>;
 
-
-pub struct Step {
+pub struct SyncStep {
     #[allow(dead_code)]
     pub(crate) start_time: Option<u64>,
     #[allow(dead_code)]
@@ -26,7 +25,7 @@ pub struct Step {
     pub(crate) callback: Option<Box<dyn FnOnce()>>,
 }
 
-impl Runner for Step {
+impl Runner for SyncStep {
     fn run(self) -> Result<String, String> {
         return match self.callback {
             None => {
@@ -43,7 +42,7 @@ impl Runner for Step {
     }
 }
 
-impl Decider for Step {
+impl Decider for SyncStep {
     fn is_run (&self) -> bool {
         return match &self.decider {
             None => true,
@@ -52,4 +51,4 @@ impl Decider for Step {
     }
 }
 
-unsafe impl Send for Step {}
+unsafe impl Send for SyncStep {}

@@ -1,9 +1,5 @@
-use crate::sync::step::{DeciderCallback, Step};
+use crate::sync::step::{DeciderCallback, SyncStep};
 use crate::sync::step::step_builder::StepBuilderTrait;
-
-pub mod reader;
-pub mod processor;
-pub mod writable;
 
 pub trait ComplexStepBuilderTrait<I: Sized, O: Sized> {
     fn reader(self, reader: Box<dyn Fn() -> Box<dyn Iterator<Item=I>>>) -> Self;
@@ -49,13 +45,13 @@ pub struct ComplexStepBuilder<I: Sized, O: Sized> {
     processor: Option<Box<dyn Fn() -> Box<dyn Fn(I) -> O>>>,
     writer: Option<Box<dyn Fn() -> Box<dyn Fn(&Vec<O>) -> ()>>>,
     chunk_size: Option<usize>,
-    step: Step,
+    step: SyncStep,
 }
 
 impl<I: Sized + 'static, O: Sized + 'static> StepBuilderTrait for ComplexStepBuilder<I, O> where Self: Sized {
     fn decider(self, decider: DeciderCallback) -> Self {
         ComplexStepBuilder {
-            step: Step {
+            step: SyncStep {
                 decider: Some(decider),
                 ..self.step
             },
@@ -65,7 +61,7 @@ impl<I: Sized + 'static, O: Sized + 'static> StepBuilderTrait for ComplexStepBui
 
     fn throw_tolerant(self) -> Self {
         ComplexStepBuilder {
-            step: Step {
+            step: SyncStep {
                 throw_tolerant: Some(true),
                 ..self.step
             },
@@ -80,7 +76,7 @@ impl<I: Sized + 'static, O: Sized + 'static> StepBuilderTrait for ComplexStepBui
             processor: None,
             writer: None,
             chunk_size: None,
-            step: Step {
+            step: SyncStep {
                 name,
                 callback: None,
                 decider: None,
@@ -111,7 +107,7 @@ impl<I: Sized + 'static, O: Sized + 'static> StepBuilderTrait for ComplexStepBui
         return self;
     }
 
-    fn build(self) -> Step {
+    fn build(self) -> SyncStep {
         let mut current_self = self.validate();
 
         current_self.step.callback = Some(Box::new(move || {
@@ -121,7 +117,7 @@ impl<I: Sized + 'static, O: Sized + 'static> StepBuilderTrait for ComplexStepBui
             let chunk_size = current_self.chunk_size.unwrap_or(DEFAULT_CHUNK_SIZE);
             let mut vec = Vec::with_capacity(chunk_size);
 
-            for chunk in &mut reader() {
+            for chunk in reader() {
                 vec.push(processor(chunk));
 
                 if vec.len() == chunk_size {
