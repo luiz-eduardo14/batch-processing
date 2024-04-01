@@ -1,7 +1,3 @@
-// pub mod complex_step;
-// pub mod simple_step;
-// pub mod step_builder;
-
 use std::time::SystemTime;
 
 use async_trait::async_trait;
@@ -11,38 +7,52 @@ pub mod simple_step;
 pub mod step_builder;
 pub mod complex_step;
 
+/// A trait for running asynchronous tasks and returning a result.
 #[async_trait]
 pub trait AsyncRunner<R> where Self: Sized + Send {
+    /// Executes the asynchronous task and returns the result.
     async fn run(self) -> R;
 }
 
+/// A trait representing a decider for asynchronous steps.
 #[async_trait]
 pub trait Decider {
+    /// Decides whether the step should proceed or not.
     async fn decide(&self) -> bool;
 }
 
+/// Type alias for a dynamic asynchronous callback function.
 pub type DynAsyncCallback<O> = dyn Send + Sync + Fn() -> BoxFuture<'static, O>;
 
+/// Type alias for a decider callback function.
 pub type DeciderCallback = Box<dyn Send + Sync + Fn() -> BoxFuture<'static, bool>>;
 
+/// Represents the status of a step execution.
 #[derive(Debug, Clone)]
 pub struct StepStatus {
-    #[allow(dead_code)]
+    /// The start time of the step execution.
     pub start_time: Option<u128>,
-    #[allow(dead_code)]
+    /// The end time of the step execution.
     pub end_time: Option<u128>,
+    /// The status result of the step execution.
     pub status: Result<String, String>,
 }
 
-pub struct AsyncStep<> {
+/// Represents an asynchronous step with configurable callbacks and deciders.
+pub struct AsyncStep {
+    /// The name of the step.
     pub name: String,
+    /// Whether the step is tolerant to thrown errors.
     pub throw_tolerant: Option<bool>,
+    /// The decider callback for the step.
     decider: Option<DeciderCallback>,
+    /// The callback function for the step.
     callback: Option<Box<DynAsyncCallback<Result<String, String>>>>,
 }
 
 #[async_trait]
 impl AsyncRunner<StepStatus> for AsyncStep {
+    /// Executes the asynchronous step and returns its status.
     async fn run(self) -> StepStatus {
         let start_time = SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
         return match self.callback {
@@ -79,16 +89,14 @@ impl AsyncRunner<StepStatus> for AsyncStep {
 
 #[async_trait]
 impl Decider for AsyncStep {
+    /// Decides whether the step should proceed or not based on the decider callback.
     async fn decide(&self) -> bool {
         return match &self.decider {
-            None => {
-                true
-            }
-            Some(decider) => {
-                return decider().await
-            }
+            None => true,
+            Some(decider) => decider().await,
         };
     }
 }
 
+// Allows `AsyncStep` to be sent between threads safely.
 unsafe impl Send for AsyncStep {}
