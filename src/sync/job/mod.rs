@@ -9,18 +9,27 @@ use crate::sync::step::{Decider, Runner, SyncStep};
 
 pub mod job_builder;
 
+/// Represents a synchronous job.
 pub struct Job {
+    /// The name of the job.
     pub name: String,
+    /// The start time of the job execution.
     pub start_time: Option<u64>,
+    /// The end time of the job execution.
     pub end_time: Option<u64>,
+    /// The list of steps to be executed in the job.
     pub steps: Vec<SyncStep>,
+    /// Indicates whether the job is to be executed in multithreaded mode.
     pub multi_threaded: Option<bool>,
+    /// The maximum number of threads allowed for multithreaded execution.
     pub max_threads: Option<usize>,
 }
 
 impl Runner for Job {
+    /// The output type of the job execution.
     type Output = JobStatus;
 
+    /// Executes the synchronous job and returns its status.
     fn run(self) -> Self::Output {
         let start_time = now_time();
         let multi_threaded = self.multi_threaded.unwrap_or(false);
@@ -134,4 +143,5 @@ impl Runner for Job {
     }
 }
 
+// Allows `Job` to be sent between threads safely.
 unsafe impl Send for Job {}
