@@ -1,15 +1,36 @@
 use crate::sync::step::{DeciderCallback, SyncStep, StepCallback};
 use crate::sync::step::step_builder::StepBuilderTrait;
 
+/// A trait for building simple synchronous steps.
 pub trait SimpleStepBuilderTrait<I, O> {
+    /// Configures the step with a tasklet callback.
+    ///
+    /// # Arguments
+    ///
+    /// * `step_callback` - The tasklet callback function.
+    ///
+    /// # Returns
+    ///
+    /// Returns a modified builder instance.
     fn tasklet(self, step_callback: StepCallback) -> Self;
 }
 
+/// A builder struct for constructing simple synchronous steps.
 pub struct SimpleStepBuilder {
+    /// The step being constructed.
     step: SyncStep,
 }
 
 impl StepBuilderTrait for SimpleStepBuilder {
+    /// Sets the decider callback for the step.
+    ///
+    /// # Arguments
+    ///
+    /// * `decider` - The decider callback function.
+    ///
+    /// # Returns
+    ///
+    /// Returns a modified builder instance.
     fn decider(self, decider: DeciderCallback) -> Self {
         SimpleStepBuilder {
             step: SyncStep {
@@ -19,6 +40,11 @@ impl StepBuilderTrait for SimpleStepBuilder {
         }
     }
 
+    /// Configures the step to be tolerant to thrown exceptions.
+    ///
+    /// # Returns
+    ///
+    /// Returns a modified builder instance.
     fn throw_tolerant(self) -> Self {
         SimpleStepBuilder {
             step: SyncStep {
@@ -28,6 +54,15 @@ impl StepBuilderTrait for SimpleStepBuilder {
         }
     }
 
+    /// Initializes a new builder instance with the given name.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the step.
+    ///
+    /// # Returns
+    ///
+    /// Returns a new builder instance.
     #[inline]
     fn get(name: String) -> Self {
         SimpleStepBuilder {
@@ -42,6 +77,11 @@ impl StepBuilderTrait for SimpleStepBuilder {
         }
     }
 
+    /// Validates the builder configuration.
+    ///
+    /// # Returns
+    ///
+    /// Returns a modified builder instance if validation succeeds.
     fn validate(self) -> Self {
         if self.step.callback.is_none() {
             panic!("Tasklet is required");
@@ -54,6 +94,11 @@ impl StepBuilderTrait for SimpleStepBuilder {
         return self;
     }
 
+    /// Builds and returns the configured synchronous step.
+    ///
+    /// # Returns
+    ///
+    /// Returns the configured synchronous step.
     fn build(self) -> SyncStep {
         let current_self = self.validate();
         return current_self.step;
@@ -61,6 +106,15 @@ impl StepBuilderTrait for SimpleStepBuilder {
 }
 
 impl SimpleStepBuilderTrait<fn(), fn()> for SimpleStepBuilder {
+    /// Configures the step with a tasklet callback.
+    ///
+    /// # Arguments
+    ///
+    /// * `step_callback` - The tasklet callback function.
+    ///
+    /// # Returns
+    ///
+    /// Returns a modified builder instance.
     fn tasklet(self, step_callback: StepCallback) -> Self {
         return SimpleStepBuilder {
             step: SyncStep {
@@ -71,6 +125,15 @@ impl SimpleStepBuilderTrait<fn(), fn()> for SimpleStepBuilder {
     }
 }
 
+/// Initializes a new simple step builder with the given name.
+///
+/// # Arguments
+///
+/// * `name` - The name of the step.
+///
+/// # Returns
+///
+/// Returns a new simple step builder instance.
 pub fn get(name: String) -> SimpleStepBuilder {
     SimpleStepBuilder::get(name)
 }
