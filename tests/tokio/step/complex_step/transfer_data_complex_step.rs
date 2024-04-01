@@ -123,6 +123,7 @@ mod async_transfer_data_complex_step_test {
         let create_table_car_prices = include_str!("../../../migrations/car_prices.sql");
         let mut conn = pool.get().await.expect("Error getting connection");
         conn.batch_execute(create_table_car_prices).await.expect("Error creating table");
+        conn.batch_execute("TRUNCATE TABLE car_prices").await.expect("Error truncating table");
         let csv_file = unzip_csv_file();
         if let None = csv_file {
             panic!("CSV file not found");

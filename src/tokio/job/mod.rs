@@ -1,11 +1,11 @@
 use std::sync::Arc;
-use std::time::SystemTime;
 
 use async_trait::async_trait;
 use futures::lock::Mutex;
 use log::{error, info};
 use tokio::task::JoinSet;
 
+use crate::core::job::{JobStatus, now_time};
 use crate::core::step::StepStatus;
 use crate::tokio::step::{AsyncStep, AsyncStepRunner, Decider};
 
@@ -28,29 +28,6 @@ pub struct AsyncJob {
     pub max_tasks: Option<usize>,
 }
 
-/// Represents the status of a job execution.
-#[derive(Debug, Clone)]
-pub struct JobStatus {
-    /// The start time of the job execution.
-    #[allow(dead_code)]
-    pub start_time: Option<u128>,
-    /// The end time of the job execution.
-    #[allow(dead_code)]
-    pub end_time: Option<u128>,
-    /// The status message of the job execution.
-    #[allow(dead_code)]
-    pub status: Result<String, String>,
-    /// The status of each step in the job execution.
-    #[allow(dead_code)]
-    pub steps_status: Vec<StepStatus>,
-}
-
-/// Generates the end time of a job execution.
-fn generate_end_time() -> u128 {
-    return SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
-}
-
-
 #[async_trait]
 impl AsyncStepRunner<JobStatus> for AsyncJob {
     /// Executes the asynchronous job and returns its result.
@@ -58,7 +35,7 @@ impl AsyncStepRunner<JobStatus> for AsyncJob {
         let multi_threaded = self.multi_threaded.unwrap_or(false);
         let mut steps = self.steps;
         let steps_len = steps.len().clone();
-        let start_time = SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
+        let start_time = now_time();
         let mut steps_status_vec: Vec<StepStatus> = Vec::new();
 
         if multi_threaded {
@@ -84,7 +61,7 @@ impl AsyncStepRunner<JobStatus> for AsyncJob {
                         if throw_tolerant {
                             return JobStatus {
                                 start_time: Some(start_time),
-                                end_time: Some(generate_end_time()),
+                                end_time: Some(now_time()),
                                 status: Err(format!("Job {} failed", self.name)),
                                 steps_status: steps_status_vec,
                             };
@@ -98,7 +75,7 @@ impl AsyncStepRunner<JobStatus> for AsyncJob {
 
             JobStatus {
                 start_time: Some(start_time),
-                end_time: Some(generate_end_time()),
+                end_time: Some(now_time()),
                 status: Ok(format!("Job {} completed", self.name)),
                 steps_status: steps_status_vec,
             }
@@ -124,7 +101,7 @@ impl AsyncStepRunner<JobStatus> for AsyncJob {
                 return
                     JobStatus {
                         start_time: Some(start_time),
-                        end_time: Some(generate_end_time()),
+                        end_time: Some(now_time()),
                         status: Ok(format!("Job {} completed", self.name)),
                         steps_status: join_set_vec,
                     };
@@ -160,7 +137,7 @@ impl AsyncStepRunner<JobStatus> for AsyncJob {
             return
                 JobStatus {
                     start_time: Some(start_time),
-                    end_time: Some(generate_end_time()),
+                    end_time: Some(now_time()),
                     status: Ok(format!("Job {} completed", self.name)),
                     steps_status: steps_status_vec,
                 };

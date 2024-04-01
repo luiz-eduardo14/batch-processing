@@ -32,11 +32,11 @@ mod simple_step_test {
             .tasklet(Box::new(tasklet2))
             .build();
 
-        step1.run().expect("TODO: panic message");
+        step1.run().status.expect("Failed to run step 1");
 
         assert_eq!(test.lock().unwrap().len(), 1);
 
-        step2.run().expect("TODO: panic message");
+        step2.run().status.expect("Failed to run step 2");
 
         assert_eq!(test.lock().unwrap().len(), 2);
     }

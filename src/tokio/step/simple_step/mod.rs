@@ -12,7 +12,7 @@ pub trait AsyncSimpleStepBuilderTrait<I, O> {
     /// # Returns `Self`
     ///
     /// Returns a modified builder instance.
-    fn tasklet(self, step_callback: Box<DynAsyncCallback<Result<String, String>>>) -> Self;
+    fn tasklet(self, step_callback: Box<DynAsyncCallback<()>>) -> Self;
 }
 
 /// A builder struct for constructing asynchronous simple steps.
@@ -115,7 +115,7 @@ impl AsyncSimpleStepBuilderTrait<fn(), fn()> for AsyncSimpleStepBuilder {
     /// # Returns `Self`
     ///
     /// Returns a modified builder instance.
-    fn tasklet(self, step_callback: Box<DynAsyncCallback<Result<String, String>>>) -> Self {
+    fn tasklet(self, step_callback: Box<DynAsyncCallback<()>>) -> Self {
         return AsyncSimpleStepBuilder {
             step: AsyncStep {
                 callback: Some(step_callback),

@@ -1,9 +1,15 @@
+use std::thread;
+use std::time::SystemTime;
+
+use crate::core::step::{mount_step_status, StepStatus, throw_tolerant_exception};
+
 pub mod complex_step;
 pub mod simple_step;
 pub mod step_builder;
 
 pub trait Runner where Self: Sized {
-    fn run(self) -> Result<String, String>;
+    type Output;
+    fn run(self) -> Self::Output;
 }
 
 pub trait Decider {
@@ -22,21 +28,28 @@ pub struct SyncStep {
     pub name: String,
     pub throw_tolerant: Option<bool>,
     pub(crate) decider: Option<DeciderCallback>,
-    pub(crate) callback: Option<Box<dyn FnOnce()>>,
+    pub(crate) callback: Option<Box<dyn FnOnce() -> () + Send>>,
 }
 
 impl Runner for SyncStep {
-    fn run(self) -> Result<String, String> {
+    type Output = StepStatus;
+    fn run(self) -> Self::Output {
+        let start_time = SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
+
         return match self.callback {
             None => {
-                if self.throw_tolerant.unwrap_or(false) {
-                    return Err(format!("callback is required, please provide a callback to the step with name: {}", self.name));
-                }
-                panic!("callback is required, please provide a callback to the step with name: {}", self.name)
+                throw_tolerant_exception(self.throw_tolerant.unwrap_or(false), self.name)
             }
             Some(callback) => {
-                callback();
-                Ok(format!("Step {} completed", self.name))
+                let thread = thread::spawn(move || {
+                    callback();
+                });
+                let thread_result = thread.join();
+
+                return match thread_result {
+                    Ok(_) => mount_step_status(Ok(format!("Step {} executed successfully", self.name)), start_time),
+                    Err(_) => mount_step_status(Err(format!("Step {} failed to execute", self.name)), start_time),
+                };
             }
         };
     }

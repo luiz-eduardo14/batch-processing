@@ -246,8 +246,6 @@ impl<I: Sized + Send + 'static + Unpin + Sync, O: Sized + Send + 'static + Sync>
                     let vec = transfer_mutex_vec_to_vec::<I, O>(vec);
                     writer(vec).await;
                 }
-
-                return Ok(String::from("Success"));
             });
         }));
 

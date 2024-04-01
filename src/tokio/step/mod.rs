@@ -1,8 +1,8 @@
-use std::time::SystemTime;
-
 use async_trait::async_trait;
 use futures::future::BoxFuture;
-use crate::core::step::StepStatus;
+
+use crate::core::job::now_time;
+use crate::core::step::{mount_step_status, StepStatus, throw_tolerant_exception};
 
 pub mod simple_step;
 pub mod step_builder;
@@ -37,41 +37,26 @@ pub struct AsyncStep {
     /// The decider callback for the step.
     decider: Option<DeciderCallback>,
     /// The callback function for the step.
-    callback: Option<Box<DynAsyncCallback<Result<String, String>>>>,
+    callback: Option<Box<DynAsyncCallback<()>>>,
 }
 
 #[async_trait]
 impl AsyncStepRunner<StepStatus> for AsyncStep {
     /// Executes the asynchronous step and returns its status.
     async fn run(self) -> StepStatus {
-        let start_time = SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
         return match self.callback {
             None => {
-                if self.throw_tolerant.unwrap_or(false) {
-                    return StepStatus {
-                        start_time: None,
-                        end_time: None,
-                        status: Ok(String::from("callback is required, please provide a callback to the step")),
-                    }
-                }
-                panic!("callback is required, please provide a callback to the step with name: {}", self.name)
+                throw_tolerant_exception(self.throw_tolerant.unwrap_or(false), self.name)
             }
             Some(callback) => {
-                let result = callback().await;
-                let end_time = SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
-
-                match result {
-                    Ok(message) => StepStatus {
-                        start_time: Some(start_time),
-                        end_time: Some(end_time),
-                        status: Ok(message),
-                    },
-                    Err(message) => StepStatus {
-                        start_time: Some(start_time),
-                        end_time: None,
-                        status: Err(message),
-                    },
-                }
+                let start_time = now_time();
+                let callback_result = tokio::spawn(async move {
+                    callback().await;
+                }).await;
+                return match callback_result {
+                    Ok(_) => mount_step_status(Ok(format!("Step {} executed successfully", self.name)), start_time),
+                    Err(_) => mount_step_status(Err(format!("Step {} failed to execute", self.name)), start_time),
+                };
             }
         };
     }

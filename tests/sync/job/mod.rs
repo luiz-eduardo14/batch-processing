@@ -28,7 +28,7 @@ mod job_test {
             .multi_threaded(4)
             .build();
 
-        match job.run() {
+        match job.run().status {
             Ok(_) => {
                 println!("Job finished");
             },

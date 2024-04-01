@@ -40,6 +40,6 @@ mod complex_step_test {
 
         assert_eq!(test_clone[0], 1, "The first element should be 1");
 
-        assert!(step_result.is_ok(), "The step should be successful")
+        assert!(step_result.status.is_ok(), "The step should be successful")
     }
 }

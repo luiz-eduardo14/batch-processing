@@ -14,7 +14,6 @@ mod job_test {
                 .tasklet(Box::new(move || {
                     return Box::pin(async move {
                         println!("{}", format!("Step {}", step_count));
-                        return Ok(format!("Hello, {}", step_count));
                     });
                 }))
                 .build();
@@ -79,8 +78,7 @@ mod job_test {
         }
 
         let mut job_builder = AsyncJobBuilder::get(String::from("job_complex_step"))
-            .multi_tasks(4)
-            ;
+            .multi_tasks(4);
 
         for i in 1..=4 {
             job_builder = job_builder.step(generate_step(i));

@@ -2,30 +2,30 @@ use crate::sync::step::{DeciderCallback, SyncStep};
 use crate::sync::step::step_builder::StepBuilderTrait;
 
 pub trait ComplexStepBuilderTrait<I: Sized, O: Sized> {
-    fn reader(self, reader: Box<dyn Fn() -> Box<dyn Iterator<Item=I>>>) -> Self;
-    fn processor(self, processor: Box<dyn Fn() -> Box<dyn Fn(I) -> O>>) -> Self;
-    fn writer(self, writer: Box<dyn Fn() -> Box<dyn Fn(&Vec<O>) -> ()>>) -> Self;
+    fn reader(self, reader: Box<dyn Fn() -> Box<dyn Iterator<Item=I>> + Send>) -> Self;
+    fn processor(self, processor: Box<dyn Fn() -> Box<dyn Fn(I) -> O> + Send>) -> Self;
+    fn writer(self, writer: Box<dyn Fn() -> Box<dyn Fn(&Vec<O>) -> ()> + Send>) -> Self;
     fn chunk_size(self, chunk_size: usize) -> Self;
 }
 
 const DEFAULT_CHUNK_SIZE: usize = 1000;
 
 impl<I: Sized + 'static, O: Sized + 'static> ComplexStepBuilderTrait<I, O> for ComplexStepBuilder<I, O> {
-    fn reader(self, reader: Box<dyn Fn() -> Box<dyn Iterator<Item=I>>>) -> Self {
+    fn reader(self, reader: Box<dyn Fn() -> Box<dyn Iterator<Item=I>> + Send>) -> Self {
         ComplexStepBuilder {
             reader: Some(reader),
             ..self
         }
     }
 
-    fn processor(self, processor: Box<dyn Fn() -> Box<dyn Fn(I) -> O>>) -> Self {
+    fn processor(self, processor: Box<dyn Fn() -> Box<dyn Fn(I) -> O> + Send>) -> Self {
         ComplexStepBuilder {
             processor: Some(processor),
             ..self
         }
     }
 
-    fn writer(self, writer: Box<dyn Fn() -> Box<dyn Fn(&Vec<O>) -> ()>>) -> Self {
+    fn writer(self, writer: Box<dyn Fn() -> Box<dyn Fn(&Vec<O>) -> ()> + Send>) -> Self {
         ComplexStepBuilder {
             writer: Some(writer),
             ..self
@@ -41,9 +41,9 @@ impl<I: Sized + 'static, O: Sized + 'static> ComplexStepBuilderTrait<I, O> for C
 }
 
 pub struct ComplexStepBuilder<I: Sized, O: Sized> {
-    reader: Option<Box<dyn Fn() -> Box<dyn Iterator<Item=I>>>>,
-    processor: Option<Box<dyn Fn() -> Box<dyn Fn(I) -> O>>>,
-    writer: Option<Box<dyn Fn() -> Box<dyn Fn(&Vec<O>) -> ()>>>,
+    reader: Option<Box<dyn Fn() -> Box<dyn Iterator<Item=I>> + Send>>,
+    processor: Option<Box<dyn Fn() -> Box<dyn Fn(I) -> O> + Send>>,
+    writer: Option<Box<dyn Fn() -> Box<dyn Fn(&Vec<O>) -> ()> + Send>>,
     chunk_size: Option<usize>,
     step: SyncStep,
 }

@@ -19,7 +19,6 @@ mod async_simple_step_test {
                         let mut vector = vector.lock().await;
                         vector.push(4);
                         println!("{}", format!("Step {}", String::new()));
-                        return Ok(format!("Hello, {}", String::new()));
                     });
                 }
             )).build();
@@ -42,8 +41,7 @@ mod async_simple_step_test {
                         let name = name.clone();
                         return Box::pin(async move {
                             tokio::time::sleep(std::time::Duration::from_millis(millis_time)).await;
-                            // println!("{}", format!("Step {}", name));
-                            return Ok(format!("Hello, {}", name));
+                            println!("{}", format!("Step {}", name));
                         });
                     }
                 ))
