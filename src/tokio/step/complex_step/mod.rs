@@ -8,20 +8,61 @@ use tokio::sync::{Mutex, MutexGuard};
 use crate::tokio::step::{AsyncStep, DeciderCallback, DynAsyncCallback};
 use crate::tokio::step::step_builder::AsyncStepBuilderTrait;
 
+/// Default chunk size used if not specified.
+const DEFAULT_CHUNK_SIZE: usize = 1000;
+
+/// Alias for a callback function that processes input data asynchronously.
 type DynParamAsyncCallback<I, O> = dyn Send + Sync + Fn(I) -> BoxFuture<'static, O>;
+/// Alias for a callback function that reads input data asynchronously.
 type ProcessorCallback<I, O> = Box<DynParamAsyncCallback<I, O>>;
+/// Alias for a callback function that processes input data asynchronously and produces output.
 type ReaderCallback<I> = Box<DynAsyncCallback<Box<dyn Stream<Item=I> + Unpin + Send>>>;
 
 #[async_trait]
 pub trait ComplexStepBuilderTrait<I: Sized, O: Sized> {
+    /// Sets the reader for the step.
+    ///
+    /// # Parameters
+    ///
+    /// - `reader`: A callback function for reading input data asynchronously.
+    ///
+    /// # Returns `Self`
+    ///
+    /// The modified builder instance.
     fn reader(self, reader: ReaderCallback<I>) -> Self;
+    /// Sets the processor for the step.
+    ///
+    /// # Parameters
+    ///
+    /// - `processor`: A callback function for processing input data asynchronously.
+    ///
+    /// # Returns `Self`
+    ///
+    /// The modified builder instance.
     fn processor(self, processor: ProcessorCallback<I, O>) -> Self;
+    /// Sets the writer for the step.
+    ///
+    /// # Parameters
+    ///
+    /// - `writer`: A callback function for writing output data asynchronously.
+    ///
+    /// # Returns `Self`
+    ///
+    /// The modified builder instance.
     fn writer(self, writer: Box<DynParamAsyncCallback<Vec<O>, ()>>) -> Self;
+    /// Sets the chunk size for processing data in chunks.
+    ///
+    /// # Parameters
+    ///
+    /// - `chunk_size`: The size of each processing chunk, defaults to 1000.
+    ///
+    /// # Returns `Self`
+    ///
+    /// The modified builder instance.
     fn chunk_size(self, chunk_size: usize) -> Self;
 }
 
-const DEFAULT_CHUNK_SIZE: usize = 1000;
-
+/// Implementation of `ComplexStepBuilderTrait` for `AsyncComplexStepBuilder`.
 #[async_trait]
 impl<I: Sized + 'static + Send, O: Sized + 'static> ComplexStepBuilderTrait<I, O> for AsyncComplexStepBuilder<I, O> {
     fn reader(self, reader: ReaderCallback<I>) -> Self {
@@ -53,6 +94,7 @@ impl<I: Sized + 'static + Send, O: Sized + 'static> ComplexStepBuilderTrait<I, O
     }
 }
 
+/// An asynchronous complex step builder for processing data.
 pub struct AsyncComplexStepBuilder<I: Sized, O: Sized> {
     reader: Option<ReaderCallback<I>>,
     processor: Option<ProcessorCallback<I, O>>,
@@ -62,6 +104,15 @@ pub struct AsyncComplexStepBuilder<I: Sized, O: Sized> {
 }
 
 impl<I: Sized + Send + 'static + Unpin + Sync, O: Sized + Send + 'static + Sync> AsyncStepBuilderTrait for AsyncComplexStepBuilder<I, O> where Self: Sized {
+    /// Sets the decider for the step.
+    ///
+    /// # Parameters
+    ///
+    /// - `decider`: A callback function for deciding the flow of the step.
+    ///
+    /// # Returns `Self`
+    ///
+    /// The modified builder instance.
     fn decider(self, decider: DeciderCallback) -> Self {
         AsyncComplexStepBuilder {
             step: AsyncStep {
@@ -72,6 +123,11 @@ impl<I: Sized + Send + 'static + Unpin + Sync, O: Sized + Send + 'static + Sync>
         }
     }
 
+    /// Sets the step to be tolerant to exceptions.
+    ///
+    /// # Returns `Self`
+    ///
+    /// The modified builder instance.
     fn throw_tolerant(self) -> Self {
         AsyncComplexStepBuilder {
             step: AsyncStep {
@@ -82,6 +138,15 @@ impl<I: Sized + Send + 'static + Unpin + Sync, O: Sized + Send + 'static + Sync>
         }
     }
 
+    /// Retrieves a new step builder instance with a given name.
+    ///
+    /// # Parameters
+    ///
+    /// - `name`: The name of the step.
+    ///
+    /// # Returns `Self`
+    ///
+    /// A new step builder instance.
     #[inline]
     fn get(name: String) -> Self {
         AsyncComplexStepBuilder {
@@ -98,6 +163,11 @@ impl<I: Sized + Send + 'static + Unpin + Sync, O: Sized + Send + 'static + Sync>
         }
     }
 
+    /// Validates the step builder instance.
+    ///
+    /// # Returns `Self`
+    ///
+    /// The validated builder instance.
     fn validate(self) -> Self {
         if self.step.name.is_empty() {
             panic!("Name is required");
@@ -118,6 +188,11 @@ impl<I: Sized + Send + 'static + Unpin + Sync, O: Sized + Send + 'static + Sync>
         return self;
     }
 
+    /// Builds and returns the asynchronous step.
+    ///
+    /// # Returns `AsyncStep`
+    ///
+    /// The built asynchronous step.
     fn build(self) -> AsyncStep {
         let mut current_self = self.validate();
         let reader = Arc::new(current_self.reader.unwrap());
@@ -180,13 +255,15 @@ impl<I: Sized + Send + 'static + Unpin + Sync, O: Sized + Send + 'static + Sync>
     }
 }
 
-// impl <I: Sized + 'static, O: Sized + 'static> Runner for ComplexStepBuilder<I, O> {
-//     fn run(self) {
-//         let step = self.build();
-//         step.run()
-//     }
-// }
-
+/// A function to retrieve an `AsyncComplexStepBuilder` instance with a given name.
+///
+/// # Parameters
+///
+/// - `name`: The name of the step.
+///
+/// # Returns `AsyncComplexStepBuilder`
+///
+/// An `AsyncComplexStepBuilder` instance.
 pub fn get<I: Sized + 'static + Send + Unpin + Sync, O: Sized + 'static + Send + Clone + Sync>(name: String) -> AsyncComplexStepBuilder<I, O> {
     AsyncComplexStepBuilder::get(name)
 }
