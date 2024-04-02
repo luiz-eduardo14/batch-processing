@@ -11,6 +11,7 @@ exclude = [
 authors = [
     "Luiz Eduardo <masterdudu123@hotmail.com>"
 ]
+description = "A batch library for processing a list of items in parallel"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
