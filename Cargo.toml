@@ -1,9 +1,9 @@
 [package]
-name = "batch"
+name = "batch-processing"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/luiz-eduardo14/batch"
+repository = "https://github.com/luiz-eduardo14/batch-processing"
 readme = "README.md"
 exclude = [
     "tests/resources"

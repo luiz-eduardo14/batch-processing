@@ -1,4 +1,4 @@
-# Batch
+# Batch Processing
 
 A batch library for processing a list of items in parallel.
 
