@@ -1,4 +1,4 @@
-#[cfg(test)]
+#[cfg(all(feature = "async", test))]
 mod async_transfer_data_complex_step_test {
     use std::fs::File;
     use std::io;

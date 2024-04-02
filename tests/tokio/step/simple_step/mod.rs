@@ -1,4 +1,4 @@
-#[cfg(test)]
+#[cfg(all(feature = "async", test))]
 mod async_simple_step_test {
     use std::sync::Arc;
     use batch_processing::tokio::step::{AsyncStepRunner, AsyncStep, simple_step};

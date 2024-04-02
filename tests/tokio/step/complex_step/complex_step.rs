@@ -1,4 +1,4 @@
-#[cfg(test)]
+#[cfg(all(feature = "async", test))]
 mod async_complex_step_test {
     use futures::{stream, Stream};
 

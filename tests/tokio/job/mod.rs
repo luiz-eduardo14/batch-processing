@@ -1,4 +1,4 @@
-#[cfg(test)]
+#[cfg(all(feature = "async", test))]
 mod job_test {
     use futures::{Stream, stream};
     use batch_processing::tokio::job::job_builder::{AsyncJobBuilder, AsyncJobBuilderTrait};
