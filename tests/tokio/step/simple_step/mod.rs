@@ -7,7 +7,7 @@ mod async_simple_step_test {
     use tokio::join;
     use tokio::sync::Mutex;
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     async fn test_simple_step() {
         let vector = Arc::new(Mutex::new(vec![1, 2, 3]));
         let shared_vector = Arc::clone(&vector);

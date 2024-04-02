@@ -7,7 +7,7 @@ mod job_test {
     use batch_processing::tokio::step::simple_step::{AsyncSimpleStepBuilder, AsyncSimpleStepBuilderTrait};
     use batch_processing::tokio::step::step_builder::AsyncStepBuilderTrait;
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     async fn job_simple_step() {
         fn generate_step(step_count: i8) -> AsyncStep {
             return AsyncSimpleStepBuilder::get(String::from(format!("step{}", step_count)))

@@ -115,7 +115,7 @@ mod async_transfer_data_complex_step_test {
         return None;
     }
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     #[ignore]
     async fn test_transfer_data_complex_step() {
         // enable_test_log();
