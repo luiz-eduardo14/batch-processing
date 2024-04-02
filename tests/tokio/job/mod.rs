@@ -1,11 +1,11 @@
 #[cfg(test)]
 mod job_test {
     use futures::{Stream, stream};
-    use batch::tokio::job::job_builder::{AsyncJobBuilder, AsyncJobBuilderTrait};
-    use batch::tokio::step::{AsyncStepRunner, AsyncStep};
-    use batch::tokio::step::complex_step::{AsyncComplexStepBuilder, ComplexStepBuilderTrait};
-    use batch::tokio::step::simple_step::{AsyncSimpleStepBuilder, AsyncSimpleStepBuilderTrait};
-    use batch::tokio::step::step_builder::AsyncStepBuilderTrait;
+    use batch_processing::tokio::job::job_builder::{AsyncJobBuilder, AsyncJobBuilderTrait};
+    use batch_processing::tokio::step::{AsyncStepRunner, AsyncStep};
+    use batch_processing::tokio::step::complex_step::{AsyncComplexStepBuilder, ComplexStepBuilderTrait};
+    use batch_processing::tokio::step::simple_step::{AsyncSimpleStepBuilder, AsyncSimpleStepBuilderTrait};
+    use batch_processing::tokio::step::step_builder::AsyncStepBuilderTrait;
 
     #[tokio::test(flavor = "multi_thread")]
     async fn job_simple_step() {

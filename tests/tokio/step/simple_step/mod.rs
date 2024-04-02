@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod async_simple_step_test {
     use std::sync::Arc;
-    use batch::tokio::step::{AsyncStepRunner, AsyncStep, simple_step};
-    use batch::tokio::step::simple_step::{AsyncSimpleStepBuilder, AsyncSimpleStepBuilderTrait};
-    use batch::tokio::step::step_builder::AsyncStepBuilderTrait;
+    use batch_processing::tokio::step::{AsyncStepRunner, AsyncStep, simple_step};
+    use batch_processing::tokio::step::simple_step::{AsyncSimpleStepBuilder, AsyncSimpleStepBuilderTrait};
+    use batch_processing::tokio::step::step_builder::AsyncStepBuilderTrait;
     use tokio::join;
     use tokio::sync::Mutex;
 

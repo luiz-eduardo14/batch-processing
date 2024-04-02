@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod simple_step_test {
     use std::sync::{Arc, Mutex};
-    use batch::sync::step::{Runner, simple_step};
-    use batch::sync::step::simple_step::SimpleStepBuilderTrait;
-    use batch::sync::step::step_builder::StepBuilderTrait;
+    use batch_processing::sync::step::{Runner, simple_step};
+    use batch_processing::sync::step::simple_step::SimpleStepBuilderTrait;
+    use batch_processing::sync::step::step_builder::StepBuilderTrait;
 
     #[test]
     fn test_simple_step() {

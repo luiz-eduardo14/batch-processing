@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod job_test {
-    use batch::sync::job::job_builder::{JobBuilder, JobBuilderTrait};
-    use batch::sync::step::Runner;
-    use batch::sync::step::simple_step::{SimpleStepBuilder, SimpleStepBuilderTrait};
-    use batch::sync::step::step_builder::StepBuilderTrait;
+    use batch_processing::sync::job::job_builder::{JobBuilder, JobBuilderTrait};
+    use batch_processing::sync::step::Runner;
+    use batch_processing::sync::step::simple_step::{SimpleStepBuilder, SimpleStepBuilderTrait};
+    use batch_processing::sync::step::step_builder::StepBuilderTrait;
 
     use crate::utils::log::enable_test_log;
 

@@ -2,9 +2,9 @@
 mod complex_step_test {
     use std::sync::{Arc, Mutex};
 
-    use batch::sync::step::{complex_step, Runner};
-    use batch::sync::step::complex_step::ComplexStepBuilderTrait;
-    use batch::sync::step::step_builder::StepBuilderTrait;
+    use batch_processing::sync::step::{complex_step, Runner};
+    use batch_processing::sync::step::complex_step::ComplexStepBuilderTrait;
+    use batch_processing::sync::step::step_builder::StepBuilderTrait;
 
     #[test]
     fn test_complex_step() {

@@ -17,9 +17,9 @@ mod async_transfer_data_complex_step_test {
     use tokio::sync::Mutex;
     use zip::ZipArchive;
 
-    use batch::tokio::step::AsyncStepRunner;
-    use batch::tokio::step::complex_step::{AsyncComplexStepBuilder, ComplexStepBuilderTrait};
-    use batch::tokio::step::step_builder::AsyncStepBuilderTrait;
+    use batch_processing::tokio::step::AsyncStepRunner;
+    use batch_processing::tokio::step::complex_step::{AsyncComplexStepBuilder, ComplexStepBuilderTrait};
+    use batch_processing::tokio::step::step_builder::AsyncStepBuilderTrait;
 
     #[global_allocator]
     static PEAK_ALLOC: PeakAlloc = PeakAlloc;
