@@ -3,7 +3,7 @@ name = "batch"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/luiz-eduardo14/batch-processing"
+repository = "https://github.com/luiz-eduardo14/batch"
 readme = "README.md"
 exclude = [
     "tests/resources"
