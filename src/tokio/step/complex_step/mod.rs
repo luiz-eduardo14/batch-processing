@@ -1,15 +1,18 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use futures::{Stream, StreamExt};
+use futures::{SinkExt, Stream, StreamExt};
 use futures::future::BoxFuture;
-use tokio::sync::{Mutex, MutexGuard};
+use tokio::join;
+use tokio::sync::{mpsc, Mutex, MutexGuard};
 
 use crate::tokio::step::{AsyncStep, DeciderCallback, DynAsyncCallback};
+use crate::tokio::step::parallel_step_builder::AsyncParallelStepBuilderTrait;
 use crate::tokio::step::step_builder::AsyncStepBuilderTrait;
 
 /// Default chunk size used if not specified.
 const DEFAULT_CHUNK_SIZE: usize = 1000;
+const DEFAULT_PROCESSOR_CONCURRENCY_SIZE: usize = 1;
 
 /// Alias for a callback function that processes input data asynchronously.
 type DynParamAsyncCallback<I, O> = dyn Send + Sync + Fn(I) -> BoxFuture<'static, O>;
@@ -64,7 +67,7 @@ pub trait ComplexStepBuilderTrait<I: Sized, O: Sized> {
 
 /// Implementation of `ComplexStepBuilderTrait` for `AsyncComplexStepBuilder`.
 #[async_trait]
-impl<I: Sized + 'static + Send, O: Sized + 'static> ComplexStepBuilderTrait<I, O> for AsyncComplexStepBuilder<I, O> {
+impl<I: Sized + 'static, O: Sized + 'static> ComplexStepBuilderTrait<I, O> for AsyncComplexStepBuilder<I, O> {
     fn reader(self, reader: ReaderCallback<I>) -> Self {
         AsyncComplexStepBuilder {
             reader: Some(reader),
@@ -100,10 +103,16 @@ pub struct AsyncComplexStepBuilder<I: Sized, O: Sized> {
     processor: Option<ProcessorCallback<I, O>>,
     writer: Option<Box<DynParamAsyncCallback<Vec<O>, ()>>>,
     chunk_size: Option<usize>,
+    /// The size of each processing task.
+    /// Defaults to 1.
+    processor_concurrency_size: usize,
     step: AsyncStep,
 }
 
-impl<I: Sized + Send + 'static + Unpin + Sync, O: Sized + Send + 'static + Sync> AsyncStepBuilderTrait for AsyncComplexStepBuilder<I, O> where Self: Sized {
+impl<I: Sized + Send + 'static + Unpin + Sync, O: Sized + Send + 'static + Sync> AsyncStepBuilderTrait for AsyncComplexStepBuilder<I, O>
+where
+    Self: Sized,
+{
     /// Sets the decider for the step.
     ///
     /// # Parameters
@@ -154,6 +163,7 @@ impl<I: Sized + Send + 'static + Unpin + Sync, O: Sized + Send + 'static + Sync>
             processor: None,
             writer: None,
             chunk_size: None,
+            processor_concurrency_size: DEFAULT_PROCESSOR_CONCURRENCY_SIZE,
             step: AsyncStep {
                 name,
                 callback: None,
@@ -200,13 +210,7 @@ impl<I: Sized + Send + 'static + Unpin + Sync, O: Sized + Send + 'static + Sync>
         let writer = Arc::new(current_self.writer.unwrap());
 
         fn transfer_mutex_vec_to_vec<I: Sized + Send + 'static, O: Sized + Send + 'static>(mut shared_vec: MutexGuard<Vec<O>>) -> Vec<O> {
-            let mut vec = vec![];
-
-            while let Some(output) = shared_vec.pop() {
-                vec.push(output);
-            }
-
-            vec
+            std::mem::take(&mut *shared_vec)
         }
 
         current_self.step.callback = Some(Box::new(move || {
@@ -218,28 +222,70 @@ impl<I: Sized + Send + 'static + Unpin + Sync, O: Sized + Send + 'static + Sync>
                 let reader = Arc::clone(&reader);
                 let processor = Arc::clone(&processor);
                 let writer = Arc::clone(&writer);
-                let shared_vec: Arc<Mutex<Vec<O>>> = Arc::new(Mutex::new(Vec::new()));
                 let mut iterator = reader().await;
 
-                while let Some(chunk) = iterator.next().await {
-                    {
-                        let processor = Arc::clone(&processor);
-                        let output = processor(chunk).await;
-                        let vec = Arc::clone(&shared_vec);
-                        let mut vec = vec.lock().await;
-                        vec.push(output);
+
+                let shared_is_finish = Arc::new(Mutex::new(false));
+                let shared_vec: Arc<Mutex<Vec<O>>> = Arc::new(Mutex::new(Vec::new()));
+                let shared_current_processor_concurrency_count = Arc::new(Mutex::new(0));
+
+                let writer_reactor = Arc::clone(&writer);
+                let (sender, mut receiver) = mpsc::channel::<Vec<O>>(32);
+                let reactor = tokio::spawn(async move {
+                    while let Some(vec) = receiver.recv().await {
+                        writer_reactor(vec).await;
                     }
-                    {
-                        let vec = Arc::clone(&shared_vec);
-                        let mutex_vec = vec.lock().await;
-                        if mutex_vec.len() == chunk_size {
-                            let vec = transfer_mutex_vec_to_vec::<I, O>(mutex_vec);
-                            writer(vec).await;
+                });
+                let shared_vec_iterator = Arc::clone(&shared_vec);
+                let max_processor_concurrency_size = current_self.processor_concurrency_size;
+                join!(
+                    reactor,
+                    async move {
+                        loop {
+                            let data = iterator.next().await;
+                            if data.is_none() {
+                                let mut is_finish = shared_is_finish.lock().await;
+                                *is_finish = true;
+                                break;
+                            }
+                            let data = data.unwrap();
+
+                            let shared_vec = Arc::clone(&shared_vec_iterator);
+                            let current_processor_concurrency_count = Arc::clone(&shared_current_processor_concurrency_count);
+
+                            while {
+                                let current_processor_concurrency_count = current_processor_concurrency_count.lock().await;
+                                let count = *current_processor_concurrency_count;
+                                count >= max_processor_concurrency_size
+                            } {}
+
+                            let processor = Arc::clone(&processor);
+                            let sender = sender.clone();
+                            {
+                                let mut current_processor_concurrency_count = current_processor_concurrency_count.lock().await;
+                                *current_processor_concurrency_count += 1
+                            };
+                            tokio::spawn(async move {
+                                let sender = sender.clone();
+                                let processor = Arc::clone(&processor);
+                                let output = processor(data).await;
+                                {
+                                    let mut current_processor_concurrency_count = current_processor_concurrency_count.lock().await;
+                                    *current_processor_concurrency_count -= 1;
+                                }
+                                let vec = Arc::clone(&shared_vec);
+                                let mut vec = vec.lock().await;
+                                vec.push(output);
+
+                                if vec.len() >= chunk_size {
+                                    let vec = transfer_mutex_vec_to_vec::<I, O>(vec);
+                                    sender.send(vec).await.unwrap();
+                                }
+                            });
                         }
                     }
-                }
-
-                let vec = shared_vec.clone();
+                );
+                let vec = Arc::clone(&shared_vec);
                 let vec = vec.lock().await;
 
                 if !vec.is_empty() {
@@ -250,6 +296,23 @@ impl<I: Sized + Send + 'static + Unpin + Sync, O: Sized + Send + 'static + Sync>
         }));
 
         return current_self.step;
+    }
+}
+
+impl<I: Sized + Send + 'static + Unpin + Sync, O: Sized + Send + 'static + Sync> AsyncParallelStepBuilderTrait for AsyncComplexStepBuilder<I, O>
+where
+    Self: Sized,
+{
+    /// Defaults to 1.
+    /// # Parameters
+    /// - `processor_concurrency_size`:  The number of workers to use for parallel processing.
+    /// # Returns `Self`
+    /// The modified builder instance.
+    fn processor_concurrency_size(self, processor_concurrency_size: usize) -> Self {
+        AsyncComplexStepBuilder {
+            processor_concurrency_size,
+            ..self
+        }
     }
 }
 

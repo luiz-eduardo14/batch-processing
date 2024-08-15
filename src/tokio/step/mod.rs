@@ -7,6 +7,7 @@ use crate::core::step::{mount_step_status, StepStatus, throw_tolerant_exception}
 pub mod simple_step;
 pub mod step_builder;
 pub mod complex_step;
+pub mod parallel_step_builder;
 
 /// A trait for running asynchronous tasks and returning a result.
 #[async_trait]
