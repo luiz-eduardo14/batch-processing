@@ -1,5 +1,6 @@
 #[cfg(all(feature = "async", test))]
 mod job_test {
+    use std::pin::Pin;
     use futures::{Stream, stream};
     use batch_processing::tokio::job::job_builder::{AsyncJobBuilder, AsyncJobBuilderTrait};
     use batch_processing::tokio::step::{AsyncStepRunner, AsyncStep};
@@ -42,18 +43,14 @@ mod job_test {
                 .reader(Box::new(move ||
                     {
                         let step_count = step_count;
-                        return Box::pin(
-                            async move {
-                                let mut vec: Vec<i32> = Vec::new();
+                        let mut vec: Vec<i32> = Vec::new();
 
-                                for n in 0..=step_count {
-                                    vec.push(n);
-                                }
+                        for n in 0..=step_count {
+                            vec.push(n);
+                        }
 
-                                let stream: Box<dyn Stream<Item=i32> + Send + Unpin> = Box::new(stream::iter(vec));
-                                stream
-                            }
-                        );
+                        let stream: Pin<Box<dyn Stream<Item=i32> + Send>> = Box::pin(Box::new(stream::iter(vec)));
+                        stream
                     }))
                 .processor(
                     Box::new(

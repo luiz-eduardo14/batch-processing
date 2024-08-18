@@ -3,6 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use futures::{SinkExt, Stream, StreamExt};
 use futures::future::BoxFuture;
+use futures::stream::BoxStream;
 use tokio::join;
 use tokio::sync::{mpsc, Mutex, MutexGuard};
 
@@ -19,7 +20,7 @@ type DynParamAsyncCallback<I, O> = dyn Send + Sync + Fn(I) -> BoxFuture<'static,
 /// Alias for a callback function that reads input data asynchronously.
 type ProcessorCallback<I, O> = Box<DynParamAsyncCallback<I, O>>;
 /// Alias for a callback function that processes input data asynchronously and produces output.
-type ReaderCallback<I> = Box<DynAsyncCallback<Box<dyn Stream<Item=I> + Unpin + Send>>>;
+type ReaderCallback<I> = Box<dyn Send + Sync + Fn() -> BoxStream<'static, I>>;
 
 #[async_trait]
 pub trait ComplexStepBuilderTrait<I: Sized, O: Sized> {
@@ -109,7 +110,7 @@ pub struct AsyncComplexStepBuilder<I: Sized, O: Sized> {
     step: AsyncStep,
 }
 
-impl<I: Sized + Send + 'static + Unpin + Sync, O: Sized + Send + 'static + Sync> AsyncStepBuilderTrait for AsyncComplexStepBuilder<I, O>
+impl<I: Sized + Send + 'static, O: Sized + Send + 'static> AsyncStepBuilderTrait for AsyncComplexStepBuilder<I, O>
 where
     Self: Sized,
 {
@@ -222,9 +223,6 @@ where
                 let reader = Arc::clone(&reader);
                 let processor = Arc::clone(&processor);
                 let writer = Arc::clone(&writer);
-                let mut iterator = reader().await;
-
-
                 let shared_is_finish = Arc::new(Mutex::new(false));
                 let shared_vec: Arc<Mutex<Vec<O>>> = Arc::new(Mutex::new(Vec::new()));
                 let shared_current_processor_concurrency_count = Arc::new(Mutex::new(0));
@@ -238,6 +236,8 @@ where
                 });
                 let shared_vec_iterator = Arc::clone(&shared_vec);
                 let max_processor_concurrency_size = current_self.processor_concurrency_size;
+
+                let mut iterator = reader();
                 join!(
                     reactor,
                     async move {
@@ -299,7 +299,7 @@ where
     }
 }
 
-impl<I: Sized + Send + 'static + Unpin + Sync, O: Sized + Send + 'static + Sync> AsyncParallelStepBuilderTrait for AsyncComplexStepBuilder<I, O>
+impl<I: Sized + Send + 'static + Sync, O: Sized + Send + 'static + Sync> AsyncParallelStepBuilderTrait for AsyncComplexStepBuilder<I, O>
 where
     Self: Sized,
 {
@@ -325,6 +325,6 @@ where
 /// # Returns `AsyncComplexStepBuilder`
 ///
 /// An `AsyncComplexStepBuilder` instance.
-pub fn get<I: Sized + 'static + Send + Unpin + Sync, O: Sized + 'static + Send + Clone + Sync>(name: String) -> AsyncComplexStepBuilder<I, O> {
+pub fn get<I: Sized + 'static + Send, O: Sized + 'static + Send + Clone + Sync>(name: String) -> AsyncComplexStepBuilder<I, O> {
     AsyncComplexStepBuilder::get(name)
 }

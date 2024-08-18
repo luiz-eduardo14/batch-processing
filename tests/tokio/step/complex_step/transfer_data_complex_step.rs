@@ -3,6 +3,7 @@ mod async_transfer_data_complex_step_test {
     use std::fs::File;
     use std::io;
     use std::path::Path;
+    use std::pin::Pin;
     use std::sync::Arc;
 
     use chrono::NaiveDate;
@@ -12,6 +13,7 @@ mod async_transfer_data_complex_step_test {
     use diesel_async::{AsyncPgConnection, RunQueryDsl, SimpleAsyncConnection};
     use diesel_async::pooled_connection::{AsyncDieselConnectionManager, ManagerConfig, RecyclingMethod};
     use diesel_async::pooled_connection::deadpool::{BuildError, Pool};
+    use futures::executor::block_on;
     use futures::Stream;
     use peak_alloc::PeakAlloc;
     use tokio::sync::Mutex;
@@ -116,7 +118,7 @@ mod async_transfer_data_complex_step_test {
     }
 
     #[tokio::test]
-    #[ignore]
+    // #[ignore]
     async fn test_transfer_data_complex_step() {
         // enable_test_log();
         let pool = Arc::new(get_pool().await.expect("Error creating pool"));
@@ -135,14 +137,11 @@ mod async_transfer_data_complex_step_test {
             .reader(
                 Box::new(move || {
                     let csv_file = csv_path.clone();
-                    return Box::pin(async move {
-                        let csv_file = tokio::fs::File::open(csv_file).await.expect("Error opening file");
-                        let reader = csv_async::AsyncReader::from_reader(csv_file);
-                        let records = reader.into_records();
-                        let stream: Box<dyn Stream<Item=Result<StringRecord, csv_async::Error>> + Send + Unpin>
-                            = Box::new(records);
-                        stream
-                    });
+                    let csv_file = tokio::fs::File::open(csv_file);
+                    let csv_file = block_on(csv_file).ok().expect("Error opening file");
+                    let reader = csv_async::AsyncReader::from_reader(csv_file);
+                    let stream = reader.into_records();
+                    Box::pin(stream)
                 })
             ).processor(
             Box::new(

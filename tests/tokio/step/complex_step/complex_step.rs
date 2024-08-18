@@ -11,12 +11,7 @@ mod async_complex_step_test {
         let step_builder: AsyncComplexStepBuilder<String, String> = AsyncComplexStepBuilder::get("test".to_string())
             .reader(Box::new(move ||
                 {
-                    return Box::pin(
-                        async move {
-                            let stream: Box<dyn Stream<Item=String> + Send + Unpin> = Box::new(stream::iter(vec![String::new()]));
-                            return stream;
-                        }
-                    );
+                    return Box::pin(Box::new(stream::iter(vec![String::new()])))
                 }))
             .processor(
                 Box::new(
