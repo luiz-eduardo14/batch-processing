@@ -20,7 +20,7 @@ type DynParamAsyncCallback<I, O> = dyn Send + Sync + Fn(I) -> BoxFuture<'static,
 /// Alias for a callback function that reads input data asynchronously.
 type ProcessorCallback<I, O> = Box<DynParamAsyncCallback<I, O>>;
 /// Alias for a callback function that processes input data asynchronously and produces output.
-type ReaderCallback<I> = Box<dyn Send + Sync + Fn() -> BoxStream<'static, I>>;
+type ReaderCallback<I> = Box<dyn Send + Sync + Fn() -> BoxFuture<'static, BoxStream<'static, I>>>;
 
 #[async_trait]
 pub trait ComplexStepBuilderTrait<I: Sized, O: Sized> {
@@ -237,7 +237,7 @@ where
                 let shared_vec_iterator = Arc::clone(&shared_vec);
                 let max_processor_concurrency_size = current_self.processor_concurrency_size;
 
-                let mut iterator = reader();
+                let mut iterator = reader().await;
                 join!(
                     reactor,
                     async move {

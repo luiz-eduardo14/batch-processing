@@ -1,5 +1,6 @@
 #[cfg(all(feature = "async", test))]
 mod async_complex_step_test {
+    use std::pin::Pin;
     use futures::{stream, Stream};
 
     use batch_processing::tokio::step::AsyncStepRunner;
@@ -10,9 +11,14 @@ mod async_complex_step_test {
     async fn test_build() {
         let step_builder: AsyncComplexStepBuilder<String, String> = AsyncComplexStepBuilder::get("test".to_string())
             .reader(Box::new(move ||
-                {
-                    return Box::pin(Box::new(stream::iter(vec![String::new()])))
-                }))
+            {
+                return Box::pin(async move {
+                    let stream: Pin<Box<dyn Stream<Item=String> + Send>> =
+                        Box::pin(stream::iter(vec![String::new()]));
+                    stream
+                }
+                );
+            }))
             .processor(
                 Box::new(
                     move |item: String| Box::pin(

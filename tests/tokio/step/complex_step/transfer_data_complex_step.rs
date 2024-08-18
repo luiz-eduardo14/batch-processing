@@ -118,7 +118,7 @@ mod async_transfer_data_complex_step_test {
     }
 
     #[tokio::test]
-    // #[ignore]
+    #[ignore]
     async fn test_transfer_data_complex_step() {
         // enable_test_log();
         let pool = Arc::new(get_pool().await.expect("Error creating pool"));
@@ -140,8 +140,10 @@ mod async_transfer_data_complex_step_test {
                     let csv_file = tokio::fs::File::open(csv_file);
                     let csv_file = block_on(csv_file).ok().expect("Error opening file");
                     let reader = csv_async::AsyncReader::from_reader(csv_file);
-                    let stream = reader.into_records();
-                    Box::pin(stream)
+                    let stream: Pin<Box<dyn Stream<Item=Result<StringRecord, csv_async::Error>> + Send>> = Box::pin(reader.into_records());
+                    Box::pin(async move {
+                        stream
+                    })
                 })
             ).processor(
             Box::new(
@@ -183,12 +185,12 @@ mod async_transfer_data_complex_step_test {
                             // let mut vec = vec_car_price.chunks(2000);
                             let mut conn = pool.get().await.expect("Error getting connection");
                             // while let Some(chunk) = vec.next() {
-                                insert_into(car_prices::table)
-                                    .values(vec_car_price)
-                                    // .values(chunk)
-                                    .execute(&mut conn)
-                                    .await
-                                    .expect("Error inserting data");
+                            insert_into(car_prices::table)
+                                .values(vec_car_price)
+                                // .values(chunk)
+                                .execute(&mut conn)
+                                .await
+                                .expect("Error inserting data");
                             // }
                             let current_mem = PEAK_ALLOC.current_usage_as_mb() as i32;
                             all_memory_usage.lock().await.push(current_mem);

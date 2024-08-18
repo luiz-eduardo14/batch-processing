@@ -50,7 +50,10 @@ mod job_test {
                         }
 
                         let stream: Pin<Box<dyn Stream<Item=i32> + Send>> = Box::pin(Box::new(stream::iter(vec)));
-                        stream
+                        Box::pin(async move {
+                                stream
+                            }
+                        )
                     }))
                 .processor(
                     Box::new(
