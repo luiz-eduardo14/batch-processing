@@ -1,6 +1,7 @@
 use std::thread;
 use std::time::SystemTime;
-
+use log::info;
+use crate::core::job::now_time;
 use crate::core::step::{mount_step_status, StepStatus, throw_tolerant_exception};
 
 pub mod complex_step;
@@ -50,21 +51,29 @@ impl Runner for SyncStep {
 
     /// Executes the step and returns its status.
     fn run(self) -> Self::Output {
-        let start_time = SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
-
         return match self.callback {
             None => {
                 throw_tolerant_exception(self.throw_tolerant.unwrap_or(false), self.name)
             }
             Some(callback) => {
-                let thread = thread::spawn(move || {
+                info!("Step {} is running", self.name);
+                let task = thread::spawn(move || {
                     callback();
                 });
-                let thread_result = thread.join();
+                let task_result = task.join();
 
-                return match thread_result {
-                    Ok(_) => mount_step_status(Ok(format!("Step {} executed successfully", self.name)), start_time),
-                    Err(_) => mount_step_status(Err(format!("Step {} failed to execute", self.name)), start_time),
+                let start_time = now_time();
+                return match task_result {
+                    Ok(_) => {
+                        let message = format!("Step {} executed successfully", self.name);
+                        info!("{}", message);
+                        mount_step_status(Ok(message), start_time)
+                    },
+                    Err(_) => {
+                        let message = format!("Step {} failed to execute", self.name);
+                        info!("{}", message);
+                        mount_step_status(Err(message), start_time)
+                    },
                 };
             }
         };

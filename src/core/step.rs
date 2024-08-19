@@ -1,4 +1,5 @@
 use std::time::SystemTime;
+use log::error;
 
 /// Represents the status of a step execution.
 #[derive(Debug, Clone)]
@@ -19,7 +20,13 @@ pub fn throw_tolerant_exception(throw_tolerant: bool, step_name: String) -> Step
             status: Ok(String::from("callback is required, please provide a callback to the step")),
         }
     }
-    panic!("callback is required, please provide a callback to the step with name: {}", step_name)
+    let error_message = format!("callback is required, please provide a callback to the step with name: {}", step_name);
+    error!("{}", error_message);
+    return StepStatus {
+        start_time: None,
+        end_time: None,
+        status: Err(String::from(error_message)),
+    };
 }
 
 pub fn mount_step_status(step_result: Result<String, String>, start_time: u128) -> StepStatus {

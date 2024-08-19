@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use futures::future::BoxFuture;
-
+use log::info;
 use crate::core::job::now_time;
 use crate::core::step::{mount_step_status, StepStatus, throw_tolerant_exception};
 
@@ -51,12 +51,21 @@ impl AsyncStepRunner<StepStatus> for AsyncStep {
             }
             Some(callback) => {
                 let start_time = now_time();
+                info!("Step {} is running", self.name);
                 let callback_result = tokio::spawn(async move {
                     callback().await;
                 }).await;
                 return match callback_result {
-                    Ok(_) => mount_step_status(Ok(format!("Step {} executed successfully", self.name)), start_time),
-                    Err(_) => mount_step_status(Err(format!("Step {} failed to execute", self.name)), start_time),
+                    Ok(_) => {
+                        let message = format!("Step {} executed successfully", self.name);
+                        info!("{}", message);
+                        mount_step_status(Ok(message), start_time)
+                    },
+                    Err(_) => {
+                        let message = format!("Step {} failed to execute", self.name);
+                        info!("{}", message);
+                        mount_step_status(Err(message), start_time)
+                    },
                 };
             }
         };
