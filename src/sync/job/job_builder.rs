@@ -64,9 +64,6 @@ impl JobBuilderTrait for JobBuilder {
     ///
     /// Returns a modified builder instance if validation succeeds.
     fn validate(self) -> Self {
-        if self.job.steps.is_empty() {
-            panic!("At least one step is required");
-        }
         self
     }
 
