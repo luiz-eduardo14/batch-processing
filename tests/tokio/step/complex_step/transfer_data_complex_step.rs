@@ -118,7 +118,6 @@ mod async_transfer_data_complex_step_test {
     }
 
     #[tokio::test]
-    #[ignore]
     async fn test_transfer_data_complex_step() {
         // enable_test_log();
         let pool = Arc::new(get_pool().await.expect("Error creating pool"));
@@ -145,7 +144,8 @@ mod async_transfer_data_complex_step_test {
                         stream
                     })
                 })
-            ).processor(
+            )
+            .processor(
             Box::new(
                 |csv_line: Result<StringRecord, csv_async::Error>| {
                     let car_price = csv_line.unwrap();
@@ -192,13 +192,14 @@ mod async_transfer_data_complex_step_test {
                                 .await
                                 .expect("Error inserting data");
                             // }
-                            let current_mem = PEAK_ALLOC.current_usage_as_mb() as i32;
+                            let current_mem = PEAK_ALLOC.current_usage_as_kb() as i32;
                             all_memory_usage.lock().await.push(current_mem);
                         }
                     );
                 }
             )
-        ).chunk_size(2000);
+        )
+        .chunk_size(2000);
 
         let step = step_builder.build();
 
@@ -206,7 +207,7 @@ mod async_transfer_data_complex_step_test {
 
         let all_memory_usage = final_memory_usage.lock().await;
 
-        let max_memory_for_usage = 4;
+        let max_memory_for_usage = 4000;
 
         let max_memory = all_memory_usage.iter().max().unwrap();
 

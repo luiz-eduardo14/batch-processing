@@ -1,19 +1,18 @@
 use std::sync::Arc;
-
 use async_trait::async_trait;
-use futures::{SinkExt, Stream, StreamExt};
+use futures::{StreamExt};
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
-use tokio::join;
-use tokio::sync::{mpsc, Mutex, MutexGuard};
-
-use crate::tokio::step::{AsyncStep, DeciderCallback, DynAsyncCallback};
+use log::error;
+use tokio::sync::{mpsc, Mutex};
+use tokio::task::{JoinSet};
+use crate::tokio::step::{AsyncStep, DeciderCallback};
 use crate::tokio::step::parallel_step_builder::AsyncParallelStepBuilderTrait;
 use crate::tokio::step::step_builder::AsyncStepBuilderTrait;
 
 /// Default chunk size used if not specified.
 const DEFAULT_CHUNK_SIZE: usize = 1000;
-const DEFAULT_PROCESSOR_CONCURRENCY_SIZE: usize = 1;
+const DEFAULT_WORKERS_SIZE: usize = 1;
 
 /// Alias for a callback function that processes input data asynchronously.
 type DynParamAsyncCallback<I, O> = dyn Send + Sync + Fn(I) -> BoxFuture<'static, O>;
@@ -106,7 +105,7 @@ pub struct AsyncComplexStepBuilder<I: Sized, O: Sized> {
     chunk_size: Option<usize>,
     /// The size of each processing task.
     /// Defaults to 1.
-    processor_concurrency_size: usize,
+    workers: usize,
     step: AsyncStep,
 }
 
@@ -164,7 +163,7 @@ where
             processor: None,
             writer: None,
             chunk_size: None,
-            processor_concurrency_size: DEFAULT_PROCESSOR_CONCURRENCY_SIZE,
+            workers: DEFAULT_WORKERS_SIZE,
             step: AsyncStep {
                 name,
                 callback: None,
@@ -209,88 +208,97 @@ where
         let reader = Arc::new(current_self.reader.unwrap());
         let processor = Arc::new(current_self.processor.unwrap());
         let writer = Arc::new(current_self.writer.unwrap());
-
-        fn transfer_mutex_vec_to_vec<I: Sized + Send + 'static, O: Sized + Send + 'static>(mut shared_vec: MutexGuard<Vec<O>>) -> Vec<O> {
-            std::mem::take(&mut *shared_vec)
-        }
+        let throw_tolerant = current_self.step.throw_tolerant.unwrap_or(false);
 
         current_self.step.callback = Some(Box::new(move || {
             let reader = Box::pin(reader.clone());
             let processor = processor.clone();
             let writer = writer.clone();
             let chunk_size = current_self.chunk_size.unwrap_or(DEFAULT_CHUNK_SIZE);
+            let throw_tolerant = throw_tolerant.clone();
             return Box::pin(async move {
                 let reader = Arc::clone(&reader);
                 let processor = Arc::clone(&processor);
                 let writer = Arc::clone(&writer);
-                let shared_is_finish = Arc::new(Mutex::new(false));
-                let shared_vec: Arc<Mutex<Vec<O>>> = Arc::new(Mutex::new(Vec::new()));
-                let shared_current_processor_concurrency_count = Arc::new(Mutex::new(0));
+                let throw_tolerant = throw_tolerant.clone();
 
-                let writer_reactor = Arc::clone(&writer);
-                let (sender, mut receiver) = mpsc::channel::<Vec<O>>(32);
-                let reactor = tokio::spawn(async move {
-                    while let Some(vec) = receiver.recv().await {
-                        writer_reactor(vec).await;
-                    }
-                });
-                let shared_vec_iterator = Arc::clone(&shared_vec);
-                let max_processor_concurrency_size = current_self.processor_concurrency_size;
-
-                let mut iterator = reader().await;
-                join!(
-                    reactor,
-                    async move {
-                        loop {
-                            let data = iterator.next().await;
-                            if data.is_none() {
-                                let mut is_finish = shared_is_finish.lock().await;
-                                *is_finish = true;
-                                break;
+                let mut join_workers = JoinSet::new();
+                let mut channels = Vec::new();
+                let error = Arc::new(Mutex::new(false));
+                for _ in 0..current_self.workers {
+                    let (sender, receiver) = mpsc::channel::<I>(16);
+                    let processor = Arc::clone(&processor);
+                    let writer = Arc::clone(&writer);
+                    let mut receiver = receiver;
+                    let throw_tolerant = throw_tolerant.clone();
+                    let error = Arc::clone(&error);
+                    join_workers.spawn(async move {
+                        let error = Arc::clone(&error);
+                        let mut vec: Vec<O> = Vec::new();
+                        while let Some(data) = receiver.recv().await {
+                            let output = tokio::spawn(processor(data)).await;
+                            if let Err(_) = output {
+                                if !throw_tolerant {
+                                    let mut error = error.lock().await;
+                                    *error = true;
+                                    panic!("Error to processing data");
+                                } else {
+                                    error!("Error to processing data");
+                                    continue;
+                                }
                             }
-                            let data = data.unwrap();
+                            let output = output.unwrap();
+                            vec.push(output);
 
-                            let shared_vec = Arc::clone(&shared_vec_iterator);
-                            let current_processor_concurrency_count = Arc::clone(&shared_current_processor_concurrency_count);
-
-                            while {
-                                let current_processor_concurrency_count = current_processor_concurrency_count.lock().await;
-                                let count = *current_processor_concurrency_count;
-                                count >= max_processor_concurrency_size
-                            } {}
-
-                            let processor = Arc::clone(&processor);
-                            let sender = sender.clone();
-                            {
-                                let mut current_processor_concurrency_count = current_processor_concurrency_count.lock().await;
-                                *current_processor_concurrency_count += 1
-                            };
-                            tokio::spawn(async move {
-                                let sender = sender.clone();
-                                let processor = Arc::clone(&processor);
-                                let output = processor(data).await;
-                                {
-                                    let mut current_processor_concurrency_count = current_processor_concurrency_count.lock().await;
-                                    *current_processor_concurrency_count -= 1;
+                            if vec.len() >= chunk_size {
+                                let vec_to_write = std::mem::take(&mut vec);
+                                let writer_result = tokio::spawn(writer(vec_to_write)).await;
+                                vec.clear();
+                                if let Err(_) = writer_result {
+                                    if !throw_tolerant {
+                                        let mut error = error.lock().await;
+                                        *error = true;
+                                        panic!("Error to writing data");
+                                    } else {
+                                        error!("Error to writing data");
+                                    }
                                 }
-                                let vec = Arc::clone(&shared_vec);
-                                let mut vec = vec.lock().await;
-                                vec.push(output);
-
-                                if vec.len() >= chunk_size {
-                                    let vec = transfer_mutex_vec_to_vec::<I, O>(vec);
-                                    sender.send(vec).await.unwrap();
+                            }
+                        }
+                        if !vec.is_empty() {
+                            let vec_to_write = std::mem::take(&mut vec);
+                            let writer_result = tokio::spawn(writer(vec_to_write)).await;
+                            if let Err(_) = writer_result {
+                                if !throw_tolerant {
+                                    let mut error = error.lock().await;
+                                    *error = true;
+                                    panic!("Error to writing data");
+                                } else {
+                                    error!("Error to writing data");
                                 }
-                            });
+                            }
+                        }
+                    });
+                    channels.push(sender);
+                }
+                let mut iterator = reader().await;
+                let mut current_channel: usize = 0;
+                while let Some(data) = iterator.next().await {
+                    if !throw_tolerant {
+                        let error = Arc::clone(&error);
+                        let error = error.lock().await;
+                        if *error {
+                            join_workers.abort_all();
+                            panic!("Error to processing data");
                         }
                     }
-                );
-                let vec = Arc::clone(&shared_vec);
-                let vec = vec.lock().await;
-
-                if !vec.is_empty() {
-                    let vec = transfer_mutex_vec_to_vec::<I, O>(vec);
-                    writer(vec).await;
+                    let sender = &mut channels[current_channel];
+                    sender.send(data).await.unwrap();
+                    if current_channel == current_self.workers - 1 {
+                        current_channel = 0;
+                    } else {
+                        current_channel += 1;
+                    }
                 }
             });
         }));
@@ -305,12 +313,12 @@ where
 {
     /// Defaults to 1.
     /// # Parameters
-    /// - `processor_concurrency_size`:  The number of workers to use for parallel processing.
+    /// - `workers`:  The number of workers.
     /// # Returns `Self`
     /// The modified builder instance.
-    fn processor_concurrency_size(self, processor_concurrency_size: usize) -> Self {
+    fn workers(self, workers: usize) -> Self {
         AsyncComplexStepBuilder {
-            processor_concurrency_size,
+            workers,
             ..self
         }
     }

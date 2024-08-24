@@ -6,5 +6,5 @@ pub trait AsyncParallelStepBuilderTrait {
     /// - `processor_concurrency_size`: The number of workers to use for parallel processing.
     /// # Returns `Self`
     /// The modified builder instance.
-    fn processor_concurrency_size(self, processor_concurrency_size: usize) -> Self;
+    fn workers(self, processor_concurrency_size: usize) -> Self;
 }
