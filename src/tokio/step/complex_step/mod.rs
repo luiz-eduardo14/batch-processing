@@ -300,6 +300,7 @@ where
                         current_channel += 1;
                     }
                 }
+                drop(channels);
                 while let Some(task_result) = join_workers.join_next().await {
                     if let Err(_) = task_result {
                         if !throw_tolerant {
