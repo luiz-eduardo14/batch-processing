@@ -300,6 +300,16 @@ where
                         current_channel += 1;
                     }
                 }
+                while let Some(task_result) = join_workers.join_next().await {
+                    if let Err(_) = task_result {
+                        if !throw_tolerant {
+                            let mut error = error.lock().await;
+                            *error = true;
+                            panic!("Error to processing data");
+                        }
+                        join_workers.abort_all();
+                    }
+                }
             });
         }));
 
