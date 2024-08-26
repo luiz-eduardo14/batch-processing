@@ -199,11 +199,13 @@ mod async_transfer_data_complex_step_test {
                 }
             )
         )
-        .chunk_size(2000);
+        .chunk_size(1000);
 
         let step = step_builder.build();
 
-        step.run().await;
+        let step_status = step.run().await;
+
+        assert!(step_status.status.is_ok(), "The step should be successful");
 
         let all_memory_usage = final_memory_usage.lock().await;
 

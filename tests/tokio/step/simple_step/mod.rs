@@ -60,7 +60,7 @@ mod async_simple_step_test {
 
         let (step1, step2) = join!(step1.run(), step2.run());
 
-        assert!(step1.status.is_ok(), "The step should be successful");
-        assert!(step2.status.is_ok(), "The step should be successful");
+        assert!(step1.status.is_ok(), "The step 1 should be successful");
+        assert!(step2.status.is_ok(), "The step 2 should be successful");
     }
 }

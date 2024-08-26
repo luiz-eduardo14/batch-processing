@@ -238,9 +238,9 @@ where
                         while let Some(data) = receiver.recv().await {
                             let output = tokio::spawn(processor(data)).await;
                             if let Err(_) = output {
+                                let mut error = error.lock().await;
+                                *error = true;
                                 if !throw_tolerant {
-                                    let mut error = error.lock().await;
-                                    *error = true;
                                     panic!("Error to processing data");
                                 } else {
                                     error!("Error to processing data");
@@ -311,6 +311,9 @@ where
                         join_workers.abort_all();
                     }
                 }
+                let exist_error = error.lock().await;
+                let exist_error = *exist_error;
+                return exist_error;
             });
         }));
 

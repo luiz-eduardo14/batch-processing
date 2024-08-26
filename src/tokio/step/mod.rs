@@ -29,6 +29,8 @@ pub type DynAsyncCallback<O> = dyn Send + Sync + Fn() -> BoxFuture<'static, O>;
 /// Type alias for a decider callback function.
 pub type DeciderCallback = Box<dyn Send + Sync + Fn() -> BoxFuture<'static, bool>>;
 
+type ExistAnyError = bool;
+
 /// Represents an asynchronous step with configurable callbacks and deciders.
 pub struct AsyncStep {
     /// The name of the step.
@@ -38,7 +40,7 @@ pub struct AsyncStep {
     /// The decider callback for the step.
     decider: Option<DeciderCallback>,
     /// The callback function for the step.
-    callback: Option<Box<DynAsyncCallback<()>>>,
+    callback: Option<Box<DynAsyncCallback<ExistAnyError>>>,
 }
 
 #[async_trait]
@@ -53,13 +55,19 @@ impl AsyncStepRunner<StepStatus> for AsyncStep {
                 let start_time = now_time();
                 info!("Step {} is running", self.name);
                 let callback_result = tokio::spawn(async move {
-                    callback().await;
+                    return callback().await;
                 }).await;
                 return match callback_result {
-                    Ok(_) => {
-                        let message = format!("Step {} executed successfully", self.name);
-                        info!("{}", message);
-                        mount_step_status(self.name, Ok(message), start_time)
+                    Ok(exist_error) => {
+                        if exist_error {
+                            let message = format!("Step {} failed to execute", self.name);
+                            info!("{}", message);
+                            mount_step_status(self.name, Err(message), start_time)
+                        } else {
+                            let message = format!("Step {} executed successfully", self.name);
+                            info!("{}", message);
+                            mount_step_status(self.name, Ok(message), start_time)
+                        }
                     },
                     Err(_) => {
                         let message = format!("Step {} failed to execute", self.name);
