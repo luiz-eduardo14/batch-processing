@@ -209,6 +209,7 @@ where
         let processor = Arc::new(current_self.processor.unwrap());
         let writer = Arc::new(current_self.writer.unwrap());
         let throw_tolerant = current_self.step.throw_tolerant.unwrap_or(false);
+        let step_name = Arc::new(current_self.step.name.clone());
 
         current_self.step.callback = Some(Box::new(move || {
             let reader = Box::pin(reader.clone());
@@ -216,11 +217,13 @@ where
             let writer = writer.clone();
             let chunk_size = current_self.chunk_size.unwrap_or(DEFAULT_CHUNK_SIZE);
             let throw_tolerant = throw_tolerant.clone();
+            let step_name = step_name.clone();
             return Box::pin(async move {
                 let reader = Arc::clone(&reader);
                 let processor = Arc::clone(&processor);
                 let writer = Arc::clone(&writer);
                 let throw_tolerant = throw_tolerant.clone();
+                let step_name = Arc::clone(&step_name);
 
                 let mut join_workers = JoinSet::new();
                 let mut channels = Vec::new();
@@ -232,18 +235,20 @@ where
                     let mut receiver = receiver;
                     let throw_tolerant = throw_tolerant.clone();
                     let error = Arc::clone(&error);
+                    let step_name = Arc::clone(&step_name);
                     join_workers.spawn(async move {
                         let error = Arc::clone(&error);
                         let mut vec: Vec<O> = Vec::new();
+                        let step_name = Arc::clone(&step_name);
                         while let Some(data) = receiver.recv().await {
                             let output = tokio::spawn(processor(data)).await;
                             if let Err(_) = output {
                                 let mut error = error.lock().await;
                                 *error = true;
                                 if !throw_tolerant {
-                                    panic!("Error to processing data");
+                                    panic!("step {}: Error to processing data", step_name);
                                 } else {
-                                    error!("Error to processing data");
+                                    error!("step {}: Error to processing data", step_name);
                                     continue;
                                 }
                             }
@@ -258,9 +263,9 @@ where
                                     if !throw_tolerant {
                                         let mut error = error.lock().await;
                                         *error = true;
-                                        panic!("Error to writing data");
+                                        panic!("step {}: Error to writing data", step_name);
                                     } else {
-                                        error!("Error to writing data");
+                                        error!("step {}: Error to writing data", step_name);
                                     }
                                 }
                             }
@@ -272,9 +277,9 @@ where
                                 if !throw_tolerant {
                                     let mut error = error.lock().await;
                                     *error = true;
-                                    panic!("Error to writing data");
+                                    panic!("step {}: Error to writing data", step_name);
                                 } else {
-                                    error!("Error to writing data");
+                                    error!("step {}: Error to writing data", step_name);
                                 }
                             }
                         }
@@ -289,7 +294,7 @@ where
                         let error = error.lock().await;
                         if *error {
                             join_workers.abort_all();
-                            panic!("Error to processing data");
+                            panic!("step {}: Error to processing data", step_name);
                         }
                     }
                     let sender = &mut channels[current_channel];
@@ -306,7 +311,7 @@ where
                         if !throw_tolerant {
                             let mut error = error.lock().await;
                             *error = true;
-                            panic!("Error to processing data");
+                            panic!("step {}: Error to processing data", step_name);
                         }
                         join_workers.abort_all();
                     }
