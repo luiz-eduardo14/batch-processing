@@ -34,6 +34,7 @@ impl AsyncStepRunner<JobStatus> for AsyncJob {
     async fn run(mut self) -> JobStatus {
         let multi_threaded = self.multi_threaded.unwrap_or(false);
         let mut steps = self.steps;
+        let name = self.name.clone();
         let steps_len = steps.len().clone();
         let start_time = now_time();
         let mut steps_status_vec: Vec<StepStatus> = Vec::new();
@@ -60,6 +61,7 @@ impl AsyncStepRunner<JobStatus> for AsyncJob {
                     Err(message) => {
                         if throw_tolerant {
                             return JobStatus {
+                                name: self.name.clone(),
                                 start_time: Some(start_time),
                                 end_time: Some(now_time()),
                                 status: Err(format!("Job {} failed", self.name)),
@@ -74,6 +76,7 @@ impl AsyncStepRunner<JobStatus> for AsyncJob {
 
 
             JobStatus {
+                name,
                 start_time: Some(start_time),
                 end_time: Some(now_time()),
                 status: Ok(format!("Job {} completed", self.name)),
@@ -100,6 +103,7 @@ impl AsyncStepRunner<JobStatus> for AsyncJob {
 
                 return
                     JobStatus {
+                        name: self.name.clone(),
                         start_time: Some(start_time),
                         end_time: Some(now_time()),
                         status: Ok(format!("Job {} completed", self.name)),
@@ -136,6 +140,7 @@ impl AsyncStepRunner<JobStatus> for AsyncJob {
 
             return
                 JobStatus {
+                    name: self.name.clone(),
                     start_time: Some(start_time),
                     end_time: Some(now_time()),
                     status: Ok(format!("Job {} completed", self.name)),

@@ -86,6 +86,7 @@ impl Runner for Job {
             info!("{}", name);
             let end_time = now_time();
             JobStatus {
+                name: self.name,
                 status: Ok(name),
                 end_time: Some(end_time),
                 start_time: Some(start_time),
@@ -134,6 +135,7 @@ impl Runner for Job {
             }
 
             JobStatus {
+                name: self.name.clone(),
                 status: Ok(format!("Job {} completed", self.name)),
                 start_time: Some(start_time),
                 end_time: Some(now_time()),
