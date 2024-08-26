@@ -60,7 +60,7 @@ impl AsyncStepRunner<StepStatus> for AsyncStep {
                 return match callback_result {
                     Ok(exist_error) => {
                         if exist_error {
-                            let message = format!("Step {} failed to execute", self.name);
+                            let message = format!("Step {} completed with errors", self.name);
                             info!("{}", message);
                             mount_step_status(self.name, Err(message), start_time)
                         } else {
