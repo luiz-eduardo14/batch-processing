@@ -59,12 +59,12 @@ impl AsyncStepRunner<StepStatus> for AsyncStep {
                     Ok(_) => {
                         let message = format!("Step {} executed successfully", self.name);
                         info!("{}", message);
-                        mount_step_status(Ok(message), start_time)
+                        mount_step_status(self.name, Ok(message), start_time)
                     },
                     Err(_) => {
                         let message = format!("Step {} failed to execute", self.name);
                         info!("{}", message);
-                        mount_step_status(Err(message), start_time)
+                        mount_step_status(self.name, Err(message), start_time)
                     },
                 };
             }

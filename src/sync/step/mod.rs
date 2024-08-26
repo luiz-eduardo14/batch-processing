@@ -8,7 +8,10 @@ pub mod simple_step;
 pub mod step_builder;
 
 /// A trait for objects that can be executed.
-pub trait Runner where Self: Sized {
+pub trait Runner
+where
+    Self: Sized,
+{
     /// The type of output produced by the execution.
     type Output;
 
@@ -66,13 +69,13 @@ impl Runner for SyncStep {
                     Ok(_) => {
                         let message = format!("Step {} executed successfully", self.name);
                         info!("{}", message);
-                        mount_step_status(Ok(message), start_time)
-                    },
+                        mount_step_status(self.name, Ok(message), start_time)
+                    }
                     Err(_) => {
                         let message = format!("Step {} failed to execute", self.name);
                         info!("{}", message);
-                        mount_step_status(Err(message), start_time)
-                    },
+                        mount_step_status(self.name, Err(message), start_time)
+                    }
                 };
             }
         };

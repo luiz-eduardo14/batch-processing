@@ -4,6 +4,7 @@ use crate::core::step::StepStatus;
 /// Represents the status of a job execution.
 #[derive(Debug, Clone)]
 pub struct JobStatus {
+    /// The name of the job.
     pub name: String,
     /// The start time of the job execution.
     #[allow(dead_code)]
