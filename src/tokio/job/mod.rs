@@ -59,7 +59,7 @@ impl AsyncStepRunner<JobStatus> for AsyncJob {
                 match step_result_clone.status {
                     Ok(message) => utils::log_step(Ok(message)),
                     Err(message) => {
-                        if throw_tolerant {
+                        if !throw_tolerant {
                             return JobStatus {
                                 name: self.name.clone(),
                                 start_time: Some(start_time),

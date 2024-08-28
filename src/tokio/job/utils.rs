@@ -63,7 +63,7 @@ pub async fn mount_step_task(step: AsyncStep, throw_tolerant: bool, mut join_set
                 log_step(Ok(message.clone()));
             }
             Err(message) => {
-                if throw_tolerant {
+                if !throw_tolerant {
                     panic!("{}", message);
                 } else {
                     log_step(Err(message));
