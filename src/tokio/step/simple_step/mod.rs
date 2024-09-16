@@ -66,6 +66,7 @@ impl AsyncStepBuilderTrait for AsyncSimpleStepBuilder {
     /// # Returns `Self`
     ///
     /// Returns a new builder instance.
+    #[inline]
     fn get(name: String) -> Self {
         AsyncSimpleStepBuilder {
             callback: None,
@@ -112,7 +113,7 @@ impl AsyncStepBuilderTrait for AsyncSimpleStepBuilder {
             let callback = Arc::clone(&callback);
             return Box::pin(async move {
                 let callback = callback;
-                callback();
+                callback().await;
                 return false;
             });
         }));
