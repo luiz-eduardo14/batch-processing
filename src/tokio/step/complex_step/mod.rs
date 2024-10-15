@@ -6,7 +6,7 @@ use futures::stream::BoxStream;
 use log::error;
 use tokio::sync::{mpsc, Mutex};
 use tokio::task::{JoinSet};
-use crate::tokio::step::{AsyncStep, DeciderCallback};
+use crate::tokio::step::{AsyncStep, DeciderCallback, StepResult};
 use crate::tokio::step::parallel_step_builder::AsyncParallelStepBuilderTrait;
 use crate::tokio::step::step_builder::AsyncStepBuilderTrait;
 
@@ -227,24 +227,24 @@ where
 
                 let mut join_workers = JoinSet::new();
                 let mut channels = Vec::new();
-                let error = Arc::new(Mutex::new(false));
+                let step_result: Arc<Mutex<StepResult>> = Arc::new(Mutex::new(Ok(())));
                 for _ in 0..current_self.workers {
                     let (sender, receiver) = mpsc::channel::<I>(16);
                     let processor = Arc::clone(&processor);
                     let writer = Arc::clone(&writer);
                     let mut receiver = receiver;
                     let throw_tolerant = throw_tolerant.clone();
-                    let error = Arc::clone(&error);
+                    let step_result = Arc::clone(&step_result);
                     let step_name = Arc::clone(&step_name);
                     join_workers.spawn(async move {
-                        let error = Arc::clone(&error);
+                        let step_result = Arc::clone(&step_result);
                         let mut vec: Vec<O> = Vec::new();
                         let step_name = Arc::clone(&step_name);
                         while let Some(data) = receiver.recv().await {
                             let output = tokio::spawn(processor(data)).await;
-                            if let Err(_) = output {
-                                let mut error = error.lock().await;
-                                *error = true;
+                            if let Err(err) = output {
+                                let mut step_result = step_result.lock().await;
+                                *step_result = Err(err);
                                 if !throw_tolerant {
                                     panic!("step {}: Error to processing data", step_name);
                                 } else {
@@ -259,10 +259,10 @@ where
                                 let vec_to_write = std::mem::take(&mut vec);
                                 let writer_result = tokio::spawn(writer(vec_to_write)).await;
                                 vec.clear();
-                                if let Err(_) = writer_result {
+                                if let Err(err) = writer_result {
                                     if !throw_tolerant {
-                                        let mut error = error.lock().await;
-                                        *error = true;
+                                        let mut error = step_result.lock().await;
+                                        *error = Err(err);
                                         panic!("step {}: Error to writing data", step_name);
                                     } else {
                                         error!("step {}: Error to writing data", step_name);
@@ -273,10 +273,10 @@ where
                         if !vec.is_empty() {
                             let vec_to_write = std::mem::take(&mut vec);
                             let writer_result = tokio::spawn(writer(vec_to_write)).await;
-                            if let Err(_) = writer_result {
+                            if let Err(err) = writer_result {
                                 if !throw_tolerant {
-                                    let mut error = error.lock().await;
-                                    *error = true;
+                                    let mut step_result = step_result.lock().await;
+                                    *step_result = Err(err);
                                     panic!("step {}: Error to writing data", step_name);
                                 } else {
                                     error!("step {}: Error to writing data", step_name);
@@ -290,9 +290,9 @@ where
                 let mut current_channel: usize = 0;
                 while let Some(data) = iterator.next().await {
                     if !throw_tolerant {
-                        let error = Arc::clone(&error);
-                        let error = error.lock().await;
-                        if *error {
+                        let step_result = Arc::clone(&step_result);
+                        let step_result = step_result.lock().await;
+                        if step_result.is_err() {
                             join_workers.abort_all();
                             panic!("step {}: Error to processing data", step_name);
                         }
@@ -307,18 +307,16 @@ where
                 }
                 drop(channels);
                 while let Some(task_result) = join_workers.join_next().await {
-                    if let Err(_) = task_result {
+                    if let Err(err) = task_result {
                         if !throw_tolerant {
-                            let mut error = error.lock().await;
-                            *error = true;
-                            panic!("step {}: Error to processing data", step_name);
+                            return Err(err);
                         }
                         join_workers.abort_all();
                     }
                 }
-                let exist_error = error.lock().await;
-                let exist_error = *exist_error;
-                return exist_error;
+                let step_result = Arc::try_unwrap(step_result).unwrap();
+                let step_result = step_result.into_inner();
+                return step_result;
             });
         }));
 

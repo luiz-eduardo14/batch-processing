@@ -1,6 +1,8 @@
+use std::error::Error;
 use async_trait::async_trait;
 use futures::future::BoxFuture;
 use log::info;
+use tokio::task::JoinError;
 use crate::core::job::now_time;
 use crate::core::step::{mount_step_status, StepStatus, throw_tolerant_exception};
 
@@ -29,7 +31,7 @@ pub type DynAsyncCallback<O> = dyn Send + Sync + Fn() -> BoxFuture<'static, O>;
 /// Type alias for a decider callback function.
 pub type DeciderCallback = Box<dyn Send + Sync + Fn() -> BoxFuture<'static, bool>>;
 
-type ExistAnyError = bool;
+type StepResult = Result<(), JoinError>;
 
 /// Represents an asynchronous step with configurable callbacks and deciders.
 pub struct AsyncStep {
@@ -40,7 +42,7 @@ pub struct AsyncStep {
     /// The decider callback for the step.
     decider: Option<DeciderCallback>,
     /// The callback function for the step.
-    callback: Option<Box<DynAsyncCallback<ExistAnyError>>>,
+    callback: Option<Box<DynAsyncCallback<StepResult>>>,
 }
 
 #[async_trait]
@@ -58,19 +60,18 @@ impl AsyncStepRunner<StepStatus> for AsyncStep {
                     return callback().await;
                 }).await;
                 return match callback_result {
-                    Ok(exist_error) => {
-                        if exist_error {
-                            let message = format!("Step {} completed with errors", self.name);
+                    Ok(step_result) => {
+                        if let Err(error) = step_result {
+                            let message = format!("Step {} completed with error: {}", self.name, error.to_string());
                             info!("{}", message);
-                            mount_step_status(self.name, Err(message), start_time)
-                        } else {
-                            let message = format!("Step {} executed successfully", self.name);
-                            info!("{}", message);
-                            mount_step_status(self.name, Ok(message), start_time)
+                            return mount_step_status(self.name, Err(message), start_time)
                         }
-                    },
-                    Err(_) => {
-                        let message = format!("Step {} failed to execute", self.name);
+                        let message = format!("Step {} executed successfully", self.name);
+                        info!("{}", message);
+                        mount_step_status(self.name, Ok(message), start_time)
+                    }
+                    Err(error) => {
+                        let message = format!("Step {} failed to execute: {}", self.name, error.to_string());
                         info!("{}", message);
                         mount_step_status(self.name, Err(message), start_time)
                     },

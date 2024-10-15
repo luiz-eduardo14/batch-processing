@@ -114,7 +114,7 @@ impl AsyncStepBuilderTrait for AsyncSimpleStepBuilder {
             return Box::pin(async move {
                 let callback = callback;
                 callback().await;
-                return false;
+                return Ok(());
             });
         }));
         return step;
